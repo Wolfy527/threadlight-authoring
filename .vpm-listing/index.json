@@ -7,6 +7,27 @@
   "packages": {
     "com.wolfyvr.threadlight.authoring": {
       "versions": {
+        "1.0.1": {
+          "name": "com.wolfyvr.threadlight.authoring",
+          "displayName": "ThreadLight Authoring",
+          "version": "1.0.1",
+          "unity": "2022.3",
+          "description": "Shared creator-side infrastructure for ThreadLight authoring tools.",
+          "license": "LicenseRef-Threadlight-Proprietary",
+          "documentationUrl": "https://github.com/Wolfy527/threadlight-authoring#readme",
+          "changelogUrl": "https://github.com/Wolfy527/threadlight-authoring/blob/main/CHANGELOG.md",
+          "licensesUrl": "https://github.com/Wolfy527/threadlight-authoring/blob/main/LICENSE.md",
+          "url": "https://github.com/Wolfy527/threadlight-authoring/releases/download/v1.0.1/com.wolfyvr.threadlight.authoring-1.0.1.zip",
+          "zipSHA256": "4b46eb3c535d6ab8805b2904233c4f291c0e849dcb654b81cca8b154790215a1",
+          "vpmDependencies": {
+            "com.vrchat.avatars": ">=3.7.0 <4.0.0"
+          },
+          "author": {
+            "name": "WolfyVR",
+            "email": "Wolfy527@users.noreply.github.com",
+            "url": "https://github.com/Wolfy527"
+          }
+        },
         "1.0.0": {
           "name": "com.wolfyvr.threadlight.authoring",
           "displayName": "ThreadLight Authoring",
