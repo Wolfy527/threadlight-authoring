@@ -1,0 +1,16 @@
+{
+  "name": "Threadlight.Mirroring",
+  "rootNamespace": "Threadlight.Mirroring",
+  "references": [
+    "Threadlight.Authoring"
+  ],
+  "includePlatforms": [],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

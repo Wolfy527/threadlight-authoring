@@ -1,0 +1,185 @@
+/* Window composition */
+.wolfy-export-window {
+    flex-grow: 1;
+    position: relative;
+    overflow: hidden;
+}
+.wolfy-export-banner, .wolfy-export-fixed, .wolfy-export-error, .wolfy-export-roots,
+.wolfy-export-add-root, .wolfy-export-options-controls, .wolfy-export-refresh, .wolfy-export-button,
+.wolfy-export-remove-root, .wolfy-export-tree-icon, .wolfy-export-tree-badge {
+    flex-shrink: 0;
+}
+.wolfy-export-content {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 0;
+    overflow: hidden;
+    padding: 8px 8px 0 8px;
+}
+.wolfy-export-contents-header, .wolfy-export-chooser, .wolfy-export-options,
+.wolfy-export-options-controls, .wolfy-export-root-row, .wolfy-export-tree-row,
+.wolfy-export-footer {
+    flex-direction: row;
+    align-items: center;
+}
+.wolfy-export-contents-header {
+    min-height: 30px;
+    margin-top: 8px;
+    padding: 0 5px 0 9px;
+    border-bottom-width: 1px;
+}
+.wolfy-export-contents-title {
+    flex-grow: 1;
+    -unity-font-style: bold;
+}
+.wolfy-export-contents-summary {
+    -unity-text-align: middle-right;
+    white-space: normal;
+}
+.wolfy-export-tree {
+    flex-grow: 1;
+    flex-shrink: 1;
+    flex-basis: 0;
+    min-height: 160px;
+    margin-top: 4px;
+    border-width: 1px;
+    border-radius: 4px;
+}
+.wolfy-export-roots {
+    max-height: 132px;
+}
+.wolfy-export-chooser {
+    min-width: 0;
+    max-width: 100%;
+    margin-top: 6px;
+    overflow: hidden;
+}
+.wolfy-export-root-field {
+    flex-basis: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 100px;
+    max-width: 100%;
+}
+.wolfy-export-add-root {
+    width: 84px;
+    margin-left: 7px;
+}
+.wolfy-export-chooser.wolfy-export-stacked, .wolfy-export-options.wolfy-export-stacked,
+.wolfy-export-footer.wolfy-export-stacked {
+    flex-direction: column;
+    align-items: stretch;
+}
+.wolfy-export-chooser.wolfy-export-stacked .wolfy-export-add-root {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 5px;
+}
+.wolfy-export-options {
+    align-self: stretch;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 32px;
+    margin-top: 9px;
+    padding: 3px 0;
+}
+.wolfy-export-options-label {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    -unity-font-style: bold;
+    white-space: normal;
+}
+.wolfy-export-options-controls {
+    margin-left: auto;
+}
+.wolfy-export-refresh {
+    width: 76px;
+}
+.wolfy-export-dependencies-toggle {
+    margin-left: 6px;
+}
+.wolfy-export-options.wolfy-export-stacked .wolfy-export-options-controls {
+    width: 100%;
+    margin-top: 5px;
+}
+.wolfy-export-options.wolfy-export-stacked .wolfy-export-refresh {
+    flex-grow: 1;
+}
+.wolfy-export-footer {
+    flex-shrink: 0;
+    min-height: 46px;
+    margin: 5px 8px 4px 8px;
+    padding: 4px 10px;
+    border-width: 1px;
+    border-radius: 8px;
+}
+.wolfy-export-button {
+    width: 150px;
+    margin-top: 0;
+    margin-left: 10px;
+}
+.wolfy-export-footer.wolfy-export-stacked .wolfy-export-footer-copy,
+.wolfy-export-footer.wolfy-export-stacked .wolfy-export-button {
+    width: 100%;
+}
+.wolfy-export-footer.wolfy-export-stacked .wolfy-export-button {
+    margin-top: 6px;
+    margin-left: 0;
+}
+/* Product roots and tri-state asset tree */
+.wolfy-export-roots-empty {
+    margin-top: 5px;
+}
+.wolfy-export-root-row {
+    min-height: 28px;
+    margin: 2px 0;
+    padding: 0 4px 0 8px;
+    border-radius: 4px;
+}
+.wolfy-export-root-label {
+    flex-grow: 1;
+    white-space: normal;
+}
+.wolfy-export-remove-root {
+    width: 70px;
+    margin-left: 6px;
+}
+.wolfy-export-tree-empty {
+    white-space: normal;
+    margin: 10px 10px 8px 10px;
+}
+.wolfy-export-tree-row {
+    min-height: 23px;
+    padding-right: 5px;
+}
+.wolfy-export-tree-arrow {
+    width: 20px;
+    height: 20px;
+    padding: 0;
+}
+.wolfy-export-tree-check {
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    margin-right: 5px;
+    border-width: 1px;
+}
+.wolfy-export-tree-icon {
+    width: 16px;
+    height: 16px;
+    margin-right: 5px;
+}
+.wolfy-export-tree-name {
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.wolfy-export-tree-badge {
+    font-size: 9px;
+    margin-left: 5px;
+}

@@ -1,0 +1,19 @@
+{
+  "name": "Threadlight.Authoring.Editor",
+  "rootNamespace": "Threadlight.Authoring.Editor",
+  "references": [
+    "Threadlight.Authoring",
+    "Threadlight.EditorUI",
+    "VRC.SDKBase",
+    "VRC.SDKBase.Editor.BuildPipeline"
+  ],
+  "includePlatforms": ["Editor"],
+  "excludePlatforms": [],
+  "allowUnsafeCode": false,
+  "overrideReferences": false,
+  "precompiledReferences": [],
+  "autoReferenced": true,
+  "defineConstraints": [],
+  "versionDefines": [],
+  "noEngineReferences": false
+}

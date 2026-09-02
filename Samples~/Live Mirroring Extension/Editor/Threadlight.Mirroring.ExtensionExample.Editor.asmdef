@@ -1,0 +1,13 @@
+{
+  "name": "Threadlight.Mirroring.ExtensionExample.Editor",
+  "rootNamespace": "Threadlight.Mirroring.ExtensionExample",
+  "references": [
+    "Threadlight.Mirroring.ExtensionExample",
+    "Threadlight.Authoring",
+    "Threadlight.Mirroring",
+    "Threadlight.Mirroring.Editor",
+    "Threadlight.EditorUI"
+  ],
+  "includePlatforms": ["Editor"],
+  "autoReferenced": true
+}

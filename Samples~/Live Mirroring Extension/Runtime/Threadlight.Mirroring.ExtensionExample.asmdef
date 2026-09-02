@@ -1,0 +1,8 @@
+{
+  "name": "Threadlight.Mirroring.ExtensionExample",
+  "rootNamespace": "Threadlight.Mirroring.ExtensionExample",
+  "references": [
+    "Threadlight.Mirroring"
+  ],
+  "autoReferenced": true
+}

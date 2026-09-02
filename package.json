@@ -1,0 +1,26 @@
+{
+  "name": "com.wolfyvr.threadlight.authoring",
+  "displayName": "ThreadLight Authoring",
+  "version": "1.0.0",
+  "unity": "2022.3",
+  "description": "Shared creator-side infrastructure for ThreadLight authoring tools.",
+  "license": "LicenseRef-Threadlight-Proprietary",
+  "documentationUrl": "https://github.com/Wolfy527/threadlight-authoring#readme",
+  "changelogUrl": "https://github.com/Wolfy527/threadlight-authoring/blob/main/CHANGELOG.md",
+  "licensesUrl": "https://github.com/Wolfy527/threadlight-authoring/blob/main/LICENSE.md",
+  "vpmDependencies": {
+    "com.vrchat.avatars": ">=3.7.0 <4.0.0"
+  },
+  "samples": [
+    {
+      "displayName": "Live Mirroring Extension",
+      "description": "Compile-ready examples for validation, processing, previews, target builds, and extension health.",
+      "path": "Samples~/Live Mirroring Extension"
+    }
+  ],
+  "author": {
+    "name": "WolfyVR",
+    "email": "Wolfy527@users.noreply.github.com",
+    "url": "https://github.com/Wolfy527"
+  }
+}

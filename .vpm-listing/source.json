@@ -1,0 +1,15 @@
+{
+  "name": "ThreadLight Authoring",
+  "id": "com.wolfyvr.threadlight.authoring.listing",
+  "url": "https://wolfy527.github.io/threadlight-authoring/index.json",
+  "author": "WolfyVR",
+  "description": "Shared creator-side infrastructure for ThreadLight authoring tools.",
+  "infoLink": {
+    "url": "https://github.com/Wolfy527/threadlight-authoring",
+    "text": "View package information"
+  },
+  "githubRepos": [
+    "Wolfy527/threadlight-authoring"
+  ],
+  "packages": []
+}

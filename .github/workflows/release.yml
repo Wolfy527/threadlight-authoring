@@ -1,0 +1,63 @@
+name: Build Release Candidate
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Publish the validated archive as a GitHub release
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Validate package
+        shell: pwsh
+        run: ./.github/scripts/validate-package.ps1 -PackageRoot . -ExpectedName "com.wolfyvr.threadlight.authoring"
+      - name: Read package metadata
+        id: package
+        shell: bash
+        run: |
+          echo "name=$(jq -r '.name' package.json)" >> "$GITHUB_OUTPUT"
+          echo "display_name=$(jq -r '.displayName' package.json)" >> "$GITHUB_OUTPUT"
+          echo "version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
+      - name: Reject reused release identity
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="v${{ steps.package.outputs.version }}"
+          ! gh release view "$tag" >/dev/null 2>&1 || { echo "$tag already exists"; exit 1; }
+      - name: Build and verify VPM archive
+        shell: bash
+        run: |
+          archive="${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}.zip"
+          zip -r "$RUNNER_TEMP/$archive" . -x ".git/*" ".github/*" ".vpm-listing/*" ".gitignore" ".gitattributes"
+          unzip -p "$RUNNER_TEMP/$archive" package.json | jq -e --arg version "${{ steps.package.outputs.version }}" '.name == "com.wolfyvr.threadlight.authoring" and .version == $version' > /dev/null
+          sha256sum "$RUNNER_TEMP/$archive" > "$RUNNER_TEMP/$archive.sha256"
+          echo "archive=$RUNNER_TEMP/$archive" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: threadlight-authoring-${{ steps.package.outputs.version }}
+          path: |
+            ${{ env.archive }}
+            ${{ env.archive }}.sha256
+      - name: Publish GitHub release
+        if: ${{ inputs.publish }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          gh release create "v${{ steps.package.outputs.version }}" \
+            "${{ env.archive }}" "${{ env.archive }}.sha256" package.json \
+            --target "$GITHUB_SHA" \
+            --title "${{ steps.package.outputs.display_name }} ${{ steps.package.outputs.version }}" \
+            --notes-file CHANGELOG.md

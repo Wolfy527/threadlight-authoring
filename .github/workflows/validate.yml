@@ -1,0 +1,24 @@
+name: Validate Package
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Validate manifest and Unity metadata
+        shell: pwsh
+        run: ./.github/scripts/validate-package.ps1 -PackageRoot . -ExpectedName "com.wolfyvr.threadlight.authoring"
+      - name: Validate VPM listing JSON
+        shell: bash
+        run: |
+          jq -e . .vpm-listing/source.json > /dev/null
+          jq -e . .vpm-listing/index.json > /dev/null
+
