@@ -40,8 +40,21 @@ jobs:
         shell: bash
         run: |
           archive="${{ steps.package.outputs.name }}-${{ steps.package.outputs.version }}.zip"
+          find . -not -path './.git/*' -exec touch -t 200001010000 {} +
           zip -r "$RUNNER_TEMP/$archive" . -x ".git/*" ".github/*" ".vpm-listing/*" ".gitignore" ".gitattributes"
           unzip -p "$RUNNER_TEMP/$archive" package.json | jq -e --arg version "${{ steps.package.outputs.version }}" '.name == "com.wolfyvr.threadlight.authoring" and .version == $version' > /dev/null
+          python - "$RUNNER_TEMP/$archive" <<'PY'
+          import sys, zipfile
+          with zipfile.ZipFile(sys.argv[1]) as archive:
+              unexpected = [
+                  entry.filename for entry in archive.infolist()
+                  if entry.date_time != (2000, 1, 1, 0, 0, 0)
+              ]
+          if unexpected:
+              raise SystemExit(
+                  "Archive contains non-normalized timestamps: " +
+                  ", ".join(unexpected[:10]))
+          PY
           sha256sum "$RUNNER_TEMP/$archive" > "$RUNNER_TEMP/$archive.sha256"
           echo "archive=$RUNNER_TEMP/$archive" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4

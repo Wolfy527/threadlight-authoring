@@ -686,9 +686,10 @@ public static class LegacyLiveMirroringBridge
         {
             Component component = components[index];
             // The original shipped Glizzy nested its authoring holder beneath
-            // setup folders. Exact type identity and the single-match check
-            // above are the ownership boundary; hierarchy depth is not.
-            if (component != null && component.GetType() == type)
+            // setup folders. Supported type identity and the single-match
+            // check above are the ownership boundary; hierarchy depth is not.
+            if (component != null &&
+                IsSupportedCompatibilityType(component.GetType(), type))
                 output.Add(component);
         }
         return output;
@@ -699,9 +700,27 @@ public static class LegacyLiveMirroringBridge
         List<Component> output = new List<Component>();
         Component[] components = root.GetComponentsInChildren<Component>(true);
         for (int index = 0; index < components.Length; index++)
-            if (components[index] != null && components[index].GetType() == type)
+            if (components[index] != null &&
+                IsSupportedCompatibilityType(components[index].GetType(), type))
                 output.Add(components[index]);
         return output;
+    }
+
+    private static bool IsSupportedCompatibilityType(Type candidate, Type expected)
+    {
+        if (candidate == null || expected == null)
+            return false;
+        if (candidate == expected)
+            return true;
+
+        // Components 1.0.1 preserves the released MonoScript GUID on this
+        // global wrapper. Accept that exact package-owned identity alongside
+        // the namespaced implementation, without adopting creator subclasses
+        // whose additional serialized state is outside the migration contract.
+        return expected.FullName == "Threadlight.Mirroring.LiveMirroringSystem" &&
+               candidate.FullName == "LiveMirroringSystem" &&
+               candidate.Assembly == expected.Assembly &&
+               candidate.BaseType == expected && candidate.IsSealed;
     }
 
     private static int ReadDataVersion(Type type, Component target)
