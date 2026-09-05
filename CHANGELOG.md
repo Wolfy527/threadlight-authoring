@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.2
+## 1.0.3
 
-- Recognize the legacy Live Mirroring component wrapper during migration and cleanup.
-- Embed the Components 1.0.2 fallback and normalize release archive timestamps.
+- Share the existing ThreadLight UI with customer components.
+- Include Components 1.0.3 and its UI dependency in generated installers.

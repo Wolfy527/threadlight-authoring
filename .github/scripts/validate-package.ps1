@@ -54,8 +54,6 @@ if ($ExpectedName -eq "com.wolfyvr.threadlight.authoring") {
         throw "Threadlight Authoring must declare its direct VRChat SDK dependency."
     }
     $criticalGuids = [ordered]@{
-        "Editor UI\Threadlight.EditorUI.asmdef.meta" =
-            "ba116ed4e1e542ca82aceac5f1314ca1"
         "Authoring\Editor\Threadlight.Authoring.Editor.asmdef.meta" =
             "4f840a0a69db42f6a352213083de30d4"
         "Mirroring\Editor\Threadlight.Mirroring.Editor.asmdef.meta" =
