@@ -110,6 +110,21 @@ editor session: it is not serialized or sent anywhere, and registry refreshes
 clear that registry's prior callback failures. Type and assembly names are
 support information, not stable extension identity.
 
+## Customer package export
+
+The asset exporter translates supported creator components inside a temporary
+package without modifying source prefabs, GUIDs, or object references. Current
+mirroring schema 5 exports to customer schema 3. Components supplies the default
+customer ghost material; custom product materials should live under Assets.
+Older or future schemas and nested/variant creator overrides stop export with an
+explanation. Rebuild older setups, and use a separate unpacked prefab for customer
+exports containing nested creator state.
+
+Additional component contracts implement `ICustomerExportDocumentConverter` in
+their owning editor assembly. Converters are discovered automatically and must
+validate supported serialized fields and schemas before changing an export copy.
+Customer assemblies are not required in the creator project.
+
 ## Upload boundary
 
 Live Mirroring is an authoring-only system and removes its generated editor-only

@@ -421,8 +421,8 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
         List<string> selected = selection.SelectedPaths();
         try
         {
-            AssetDatabase.ExportPackage(selected.ToArray(), path, ExportPackageOptions.Interactive);
-            ShowMessage("Export Started", $"Unity is exporting {selected.Count} selected asset" +
+            CustomerPackageExport.Export(selected.ToArray(), path);
+            ShowMessage("Export Complete", $"Exported {selected.Count} selected asset" +
                 (selected.Count == 1 ? "." : "s."), MessageType.Info);
         }
         catch (Exception exception)

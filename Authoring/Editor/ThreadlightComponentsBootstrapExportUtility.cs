@@ -86,7 +86,8 @@ public static class ThreadlightComponentsBootstrapExportUtility
             // local markers are not included in exported packages.
             SessionState.SetBool(
                 AuthoringRetentionSessionKeyPrefix + installerPath, true);
-            AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
+            if (plan.AssetsChanged)
+                AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
             return true;
         }
         catch (Exception exception)
@@ -107,6 +108,7 @@ public static class ThreadlightComponentsBootstrapExportUtility
         private readonly string bootstrapPath, markerPath;
         private string template;
         internal bool CreatedInstaller { get; private set; }
+        internal bool AssetsChanged { get; private set; }
         internal ExportPlan(string installerAssetPath)
         {
             this.installerAssetPath = installerAssetPath;
@@ -155,16 +157,20 @@ public static class ThreadlightComponentsBootstrapExportUtility
                 if (!AssetDatabase.IsValidFolder(installerAssetPath))
                     throw new IOException("Unity could not create the installer folder.");
                 CreatedInstaller = true;
+                AssetsChanged = true;
             }
-            if (!AssetDatabase.IsValidFolder(editorAssetPath))
+            if (!AssetDatabase.IsValidFolder(editorAssetPath)) {
                 AssetDatabase.CreateFolder(installerAssetPath, "Editor");
+                AssetsChanged = true;
+            }
 
-            string payloadGuid = EnsureMetaGuid(payloadPath, "TextScriptImporter:");
-            EnsureMetaGuid(bootstrapPath, "MonoImporter:");
-            CopyPayloadAtomically(sourcePayloadPath, payloadPath);
-            WriteTextAtomically(bootstrapPath,
+            string payloadGuid = EnsureMetaGuid(payloadPath, "TextScriptImporter:", out bool payloadMetaChanged);
+            EnsureMetaGuid(bootstrapPath, "MonoImporter:", out bool scriptMetaChanged);
+            AssetsChanged |= payloadMetaChanged || scriptMetaChanged;
+            AssetsChanged |= CopyPayloadAtomically(sourcePayloadPath, payloadPath);
+            AssetsChanged |= WriteTextAtomically(bootstrapPath,
                 CreateBootstrapSource(template, installerAssetPath, payloadGuid));
-            WriteTextAtomically(markerPath,
+            AssetsChanged |= WriteTextAtomically(markerPath,
                 OwnershipMarkerContents + Environment.NewLine);
         }
     }
@@ -192,18 +198,28 @@ public static class ThreadlightComponentsBootstrapExportUtility
                     "template is missing the required token " + token + ".");
         }
     }
-    private static void CopyPayloadAtomically(string sourcePath, string outputPath) =>
-        WriteAtomically(outputPath, output =>
+    private static bool CopyPayloadAtomically(string sourcePath, string outputPath)
+    {
+        if (FilesEqual(sourcePath, outputPath)) return false;
+        return WriteAtomically(outputPath, output =>
         {
             using (FileStream source = File.OpenRead(sourcePath))
                 source.CopyTo(output);
         });
-    private static void WriteTextAtomically(string outputPath, string contents)
+    }
+    private static bool WriteTextAtomically(string outputPath, string contents)
     {
         byte[] bytes = new UTF8Encoding(false).GetBytes(contents);
-        WriteAtomically(outputPath, output => output.Write(bytes, 0, bytes.Length));
+        if (File.Exists(outputPath))
+        {
+            byte[] existing = File.ReadAllBytes(outputPath);
+            bool same = existing.Length == bytes.Length;
+            for (int i = 0; same && i < bytes.Length; i++) same = existing[i] == bytes[i];
+            if (same) return false;
+        }
+        return WriteAtomically(outputPath, output => output.Write(bytes, 0, bytes.Length));
     }
-    private static void WriteAtomically(string outputPath, Action<Stream> write)
+    private static bool WriteAtomically(string outputPath, Action<Stream> write)
     {
         string temporaryPath = outputPath + ".tmp";
         if (File.Exists(temporaryPath))
@@ -213,12 +229,41 @@ public static class ThreadlightComponentsBootstrapExportUtility
             using (FileStream output = new FileStream(temporaryPath,
                 FileMode.CreateNew, FileAccess.Write, FileShare.None))
                 write(output);
+            // Preserve the imported asset and its timestamp when the bytes are
+            // identical. Changed output still uses the existing atomic replace.
+            if (FilesEqual(temporaryPath, outputPath)) return false;
             CommitTemporaryFile(temporaryPath, outputPath);
+            return true;
         }
         finally
         {
             if (File.Exists(temporaryPath))
                 File.Delete(temporaryPath);
+        }
+    }
+    private static bool FilesEqual(string candidate, string existing)
+    {
+        if (!File.Exists(existing)) return false;
+        using (var left = File.OpenRead(candidate))
+        using (var right = File.OpenRead(existing))
+        {
+            if (left.Length != right.Length) return false;
+            var leftBuffer = new byte[8192];
+            var rightBuffer = new byte[8192];
+            int count;
+            while ((count = left.Read(leftBuffer, 0, leftBuffer.Length)) > 0)
+            {
+                int read = 0;
+                while (read < count)
+                {
+                    int next = right.Read(rightBuffer, read, count - read);
+                    if (next == 0) return false;
+                    read += next;
+                }
+                for (int i = 0; i < count; i++)
+                    if (leftBuffer[i] != rightBuffer[i]) return false;
+            }
+            return right.ReadByte() == -1;
         }
     }
     private static void CommitTemporaryFile(string temporaryPath, string outputPath)
@@ -377,8 +422,9 @@ public static class ThreadlightComponentsBootstrapExportUtility
             return output.ToString();
         }
     }
-    private static string EnsureMetaGuid(string assetPath, string importer)
+    private static string EnsureMetaGuid(string assetPath, string importer, out bool changed)
     {
+        changed = false;
         string metaPath = assetPath + ".meta";
         string guid = string.Empty;
         if (File.Exists(metaPath))
@@ -395,6 +441,7 @@ public static class ThreadlightComponentsBootstrapExportUtility
         }
         if (!string.IsNullOrWhiteSpace(guid))
             return guid;
+        changed = true;
         guid = Guid.NewGuid().ToString("N");
         File.WriteAllText(metaPath, "fileFormatVersion: 2\n" +
             "guid: " + guid + "\n" + importer + "\n" +
