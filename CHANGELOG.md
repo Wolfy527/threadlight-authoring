@@ -1,6 +1,5 @@
 # Changelog
 
-## 1.0.3
+## 1.0.4
 
-- Share the existing ThreadLight UI with customer components.
-- Include Components 1.0.3 and its UI dependency in generated installers.
+Includes the updated shared UI and bootstrapper theme.
