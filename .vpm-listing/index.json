@@ -7,6 +7,35 @@
   "packages": {
     "com.wolfyvr.threadlight.authoring": {
       "versions": {
+        "1.0.6": {
+          "name": "com.wolfyvr.threadlight.authoring",
+          "displayName": "ThreadLight Authoring",
+          "version": "1.0.6",
+          "unity": "2022.3",
+          "description": "Shared creator-side infrastructure for ThreadLight authoring tools.",
+          "license": "LicenseRef-Threadlight-Proprietary",
+          "documentationUrl": "https://github.com/Wolfy527/threadlight-authoring#readme",
+          "changelogUrl": "https://github.com/Wolfy527/threadlight-authoring/blob/main/CHANGELOG.md",
+          "licensesUrl": "https://github.com/Wolfy527/threadlight-authoring/blob/main/LICENSE.md",
+          "vpmDependencies": {
+            "com.vrchat.avatars": ">=3.7.0 <4.0.0",
+            "com.wolfyvr.threadlight.ui": ">=1.0.2 <2.0.0"
+          },
+          "samples": [
+            {
+              "displayName": "Live Mirroring Extension",
+              "description": "Compile-ready examples for validation, processing, previews, target builds, and extension health.",
+              "path": "Samples~/Live Mirroring Extension"
+            }
+          ],
+          "author": {
+            "name": "WolfyVR",
+            "email": "Wolfy527@users.noreply.github.com",
+            "url": "https://github.com/Wolfy527"
+          },
+          "url": "https://github.com/Wolfy527/threadlight-authoring/releases/download/v1.0.6/com.wolfyvr.threadlight.authoring-1.0.6.zip",
+          "zipSHA256": "8e0406dba2f7a625589a0675474ca5e5fd466782b50a9ce3c2b838927f6b3793"
+        },
         "1.0.5": {
           "name": "com.wolfyvr.threadlight.authoring",
           "displayName": "ThreadLight Authoring",
@@ -168,6 +197,21 @@
     },
     "com.wolfyvr.threadlight.ui": {
       "versions": {
+        "1.0.2": {
+          "name": "com.wolfyvr.threadlight.ui",
+          "displayName": "ThreadLight UI",
+          "version": "1.0.2",
+          "unity": "2022.3",
+          "description": "Shared editor theme and controls for ThreadLight customer and creator tools.",
+          "license": "LicenseRef-Threadlight-Proprietary",
+          "author": {
+            "name": "WolfyVR",
+            "email": "Wolfy527@users.noreply.github.com",
+            "url": "https://github.com/Wolfy527"
+          },
+          "url": "https://github.com/Wolfy527/threadlight-ui/releases/download/v1.0.2/com.wolfyvr.threadlight.ui-1.0.2.zip",
+          "zipSHA256": "3405df7bafd9c1bbc038a7a65bdea90ef613256d71e8e046eec4f17f7dd180ee"
+        },
         "1.0.1": {
           "name": "com.wolfyvr.threadlight.ui",
           "displayName": "ThreadLight UI",
