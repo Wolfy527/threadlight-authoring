@@ -34,7 +34,7 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
     private ObjectField addRootField;
     private Button exportButton;
     private ThreadlightEditorTooltipLayer tooltipLayer;
-    private string errorMessage, installerPath;
+    private string errorMessage, installerPath, bootstrapErrorMessage, lastLoggedPreflightDetail;
 
     private readonly struct TreeItem
     {
@@ -113,7 +113,7 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
         tooltipLayer = new ThreadlightEditorTooltipLayer(root);
         VisualElement banner = ThreadlightEditorElements.CreateInspectorBanner(
             "Export Asset Package",
-            "Choose the product content to package. The owned ThreadLight Components installer is included automatically.",
+            "Creates a Unity package from selected product files.",
             ThreadlightEditorTheme.WorkspaceExportAccent);
         banner.AddToClassList("wolfy-export-banner");
         root.Add(banner);
@@ -124,13 +124,20 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
         errorHost = Element("wolfy-export-error");
         content.Add(errorHost);
         VisualElement header = Element("wolfy-export-contents-header");
+        VisualElement headingRow = Element("wolfy-export-contents-heading-row");
         Label title = new Label("Package Contents");
         title.AddToClassList("wolfy-export-contents-title");
         title.style.color = ThreadlightEditorTheme.Text;
         contentsSummary = new Label();
         contentsSummary.AddToClassList("wolfy-export-contents-summary");
         contentsSummary.style.color = ThreadlightEditorTheme.TextMuted;
-        header.Add(title); header.Add(contentsSummary); content.Add(header);
+        Button refresh = ThreadlightEditorElements.CreateCompactButton("Refresh", () => RefreshAssets(true), false,
+            ThreadlightEditorTheme.WorkspaceExportAccent);
+        refresh.AddToClassList("wolfy-export-refresh");
+        tooltipLayer.Register(refresh, "Refresh Export Contents",
+            "Updates the file list, referenced assets, exclusions, and Customer Installer.");
+        headingRow.Add(title); headingRow.Add(refresh);
+        header.Add(headingRow); header.Add(contentsSummary); Responsive(header); content.Add(header);
         tree = new ListView(visibleItems, 23f, MakeTreeRow, BindTreeRow)
         {
             selectionType = SelectionType.None,
@@ -147,10 +154,18 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
 
     private VisualElement CreateSources()
     {
-        VisualElement section = ThreadlightEditorElements.CreatePageSection(
-            "Product Source",
-            "Add the product folders or files to package. The current Project selection is used when the field is empty.",
-            ThreadlightEditorTheme.WorkspaceExportAccent, out VisualElement content);
+        const string stateSurface = "asset-export.sections";
+        const string stateKey = "product-source";
+        bool expanded = ThreadlightEditorPreferences.GetSessionState(stateSurface, null, stateKey, true);
+        ThreadlightDisclosureCard section = new ThreadlightDisclosureCard(
+            "Files to Export",
+            "Select product files or folders, or use the current Project selection.",
+            ThreadlightEditorTheme.WorkspaceExportAccent,
+            Color.Lerp(ThreadlightEditorTheme.BackgroundDark,
+                ThreadlightEditorTheme.Palette(ThreadlightEditorTone.Export).Fill, .10f),
+            expanded, null, null,
+            value => ThreadlightEditorPreferences.SetSessionState(stateSurface, null, stateKey, value));
+        VisualElement content = section.Content;
         section.AddToClassList("wolfy-export-fixed");
         rootList = new ScrollView(ScrollViewMode.Vertical);
         rootList.AddToClassList("wolfy-export-roots");
@@ -169,30 +184,40 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
             ThreadlightEditorTheme.WorkspaceExportAccent);
         add.AddToClassList("wolfy-export-add-root");
         tooltipLayer.Register(addRootField, "Product Content",
-            "Choose a project folder or asset to include as product content. Leave this empty to use the current Project selection.");
+            "Choose a product folder or file, or leave this empty to use the current Project selection.");
         tooltipLayer.Register(add, "Add Product Content",
-            "Add the object above, or add the current Project selection when the field is empty.");
+            "Adds the chosen item or the current Project selection when the field is empty.");
         chooser.Add(addRootField); chooser.Add(add); Responsive(chooser); content.Add(chooser);
 
         VisualElement options = Element("wolfy-export-options");
         options.AddToClassList("wolfy-export-fixed");
-        Label label = new Label("Include Referenced Dependencies");
+        options.Add(CreateExportOption("Include Referenced Assets", includeDependencies,
+            "wolfy-export-dependencies-toggle", "Include Referenced Assets",
+            "Includes assets referenced by the selected product content.",
+            value => { includeDependencies = value; RefreshAssets(false); }));
+        options.Add(CreateExportOption("Include Customer Installer", includeBootstrapper,
+            "wolfy-export-installer-toggle", "Include Customer Installer",
+            "When enabled, includes the Customer Installer. It runs only when ThreadLight Components is not already installed.",
+            value => { includeBootstrapper = value; RefreshAssets(value); }));
+        content.Add(options);
+        return section;
+    }
+
+    private VisualElement CreateExportOption(string text, bool value,
+        string toggleClass, string tooltipTitle, string tooltipText,
+        Action<bool> changed)
+    {
+        VisualElement option = Element("wolfy-export-option");
+        option.AddToClassList(toggleClass + "-option");
+        Label label = new Label(text);
         label.AddToClassList("wolfy-export-options-label");
         label.style.color = ThreadlightEditorTheme.TextMuted;
         VisualElement controls = Element("wolfy-export-options-controls");
-        Button refresh = ThreadlightEditorElements.CreateCompactButton("Refresh", () => RefreshAssets(true), false,
-            ThreadlightEditorTheme.WorkspaceExportAccent);
-        refresh.AddToClassList("wolfy-export-refresh");
-        Button dependencies = ThreadlightEditorElements.CreateToggleControl(includeDependencies, value =>
-        { includeDependencies = value; RefreshAssets(false); });
-        dependencies.AddToClassList("wolfy-export-dependencies-toggle");
-        tooltipLayer.Register(refresh, "Refresh Export Contents",
-            "Re-scan product files, referenced dependencies, exclusions, and the guarded installer before exporting.");
-        tooltipLayer.Register(dependencies, "Include Referenced Assets",
-            "Include assets referenced by the selected product content.");
-        controls.Add(refresh); controls.Add(dependencies); options.Add(label); options.Add(controls);
-        Responsive(options); content.Add(options);
-        return section;
+        Button toggle = ThreadlightEditorElements.CreateToggleControl(value, changed);
+        toggle.AddToClassList(toggleClass);
+        tooltipLayer.Register(toggle, tooltipTitle, tooltipText);
+        controls.Add(toggle); option.Add(label); option.Add(controls);
+        return option;
     }
 
     private VisualElement CreateFooter()
@@ -205,7 +230,8 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
         exportButton = ThreadlightEditorElements.CreatePrimaryButton("Export Unity Package", ExportPackage,
             ThreadlightEditorTheme.WorkspaceExportAccent);
         exportButton.AddToClassList("wolfy-export-button");
-        footer.Add(copy); footer.Add(exportButton); Responsive(footer);
+        exportButton.AddToClassList("threadlight-footer-button");
+        footer.Add(copy); footer.Add(exportButton);
         return footer;
     }
 
@@ -233,13 +259,7 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
     {
         if (rootList == null) return;
         rootList.Clear();
-        if (productRoots.Count == 0)
-        {
-            Label empty = new Label("No product content selected.");
-            empty.AddToClassList("wolfy-export-roots-empty");
-            empty.style.color = ThreadlightEditorTheme.TextMuted;
-            rootList.Add(empty); return;
-        }
+        rootList.style.display = productRoots.Count == 0 ? DisplayStyle.None : DisplayStyle.Flex;
         foreach (string path in productRoots.ToArray())
         {
             VisualElement row = Element("wolfy-export-root-row");
@@ -251,7 +271,7 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
             { productRoots.Remove(path); RebuildRoots(); RefreshAssets(false); }, true);
             remove.AddToClassList("wolfy-export-remove-root");
             tooltipLayer.Register(remove, "Remove Product Source",
-                "Remove this source from the export list. Project assets are not deleted.");
+                "Removes this source from the package without deleting its Project assets.");
             row.Add(label); row.Add(remove); rootList.Add(row);
         }
     }
@@ -277,9 +297,11 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
                 foreach (string path in ThreadlightComponentsAssetExportCatalog.CollectAssets(new[] { installerPath }))
                     selection.Add(path, ExportKind.Bootstrapper);
             else if (string.IsNullOrWhiteSpace(bootstrapError))
-                bootstrapError = "The ThreadLight Components installer has not been prepared yet. Use Refresh to prepare it.";
+                bootstrapError = "The Customer Installer is not ready. Select Refresh to prepare it.";
         }
-        ShowError(bootstrapError); RebuildVisibleItems(); RefreshSummary();
+        bootstrapErrorMessage = bootstrapError;
+        RebuildVisibleItems();
+        RefreshReadiness();
     }
 
     private void AddAsset(string path, ExportKind kind)
@@ -320,10 +342,10 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
                 ? "Collapse Folder" : "Expand Folder",
             () => "Show or hide this folder without changing what will be exported.");
         tooltipLayer.Register(row.Check, () => row.Node?.ContainsOnlyBootstrapper == true
-                ? "Required Installer Content" : "Include In Export",
+                ? "Required Installer Content" : "Include in Export",
             () => row.Node?.ContainsOnlyBootstrapper == true
-                ? "This owned installer content is required while the temporary bootstrapper option is enabled."
-                : "Include or exclude this item and its descendants from the exported Unity package.");
+                ? "Required while Include Customer Installer is enabled."
+                : "Includes or excludes this item and its contents.");
         tooltipLayer.Register(row.Name, () => row.Node?.Name, () => row.Node?.Path);
         return row.Root;
     }
@@ -388,7 +410,47 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
     private void ToggleSelected(ExportNode node)
     {
         if (node == null || node.ContainsOnlyBootstrapper) return;
-        selection.ToggleSelected(node); tree.RefreshItems(); RefreshSummary();
+        selection.ToggleSelected(node); tree.RefreshItems(); RefreshReadiness();
+    }
+
+    private void RefreshReadiness()
+    {
+        if (!string.IsNullOrWhiteSpace(bootstrapErrorMessage))
+        {
+            ShowError(bootstrapErrorMessage);
+            RefreshSummary();
+            return;
+        }
+
+        if (selection.CountSelected(ExportKind.Product) > 0)
+        {
+            CustomerPackageExport.PreflightResult preflight =
+                CustomerPackageExport.Preflight(selection.SelectedPaths().ToArray());
+            if (!preflight.CanExport)
+            {
+                if (!string.Equals(lastLoggedPreflightDetail, preflight.TechnicalDetails, StringComparison.Ordinal))
+                {
+                    Debug.LogError("[ThreadLight Customer Export] " + preflight.TechnicalDetails);
+                    lastLoggedPreflightDetail = preflight.TechnicalDetails;
+                }
+                ShowError(preflight.UserMessage);
+                RefreshSummary();
+                return;
+            }
+        }
+
+        lastLoggedPreflightDetail = string.Empty;
+        errorMessage = string.Empty;
+        if (!includeBootstrapper)
+            ShowMessage("Customer Setup Required",
+                "Customers must install ThreadLight Components through VCC before importing this package.",
+                MessageType.Warning);
+        else
+        {
+            errorHost.Clear();
+            errorHost.style.display = DisplayStyle.None;
+        }
+        RefreshSummary();
     }
 
     private void RefreshSummary()
@@ -396,15 +458,16 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
         int products = selection.CountSelected(ExportKind.Product);
         int dependencies = selection.CountSelected(ExportKind.Dependency);
         int bootstrap = selection.CountSelected(ExportKind.Bootstrapper);
-        contentsSummary.text = $"{products} product · {dependencies} dependencies" +
-            (includeBootstrapper ? " · installer" : string.Empty) +
+        contentsSummary.text = $"{FormatCount(products, "selected asset")} · {FormatCount(dependencies, "referenced asset")}" +
+            (includeBootstrapper ? " · installer included" : " · installer excluded") +
             (selection.ExcludedCount > 0 ? $" · {selection.ExcludedCount} excluded" : string.Empty);
-        contentsSummary.style.color = selection.ExcludedCount > 0
+        contentsSummary.style.color = selection.ExcludedCount > 0 || !includeBootstrapper
             ? ThreadlightEditorTheme.Warning : ThreadlightEditorTheme.TextMuted;
-        summary.text = products == 0 ? "Add product content to continue." :
+        summary.text = products == 0 ? "Select at least one asset to export." :
             !string.IsNullOrWhiteSpace(errorMessage) ? "Resolve the issue above before exporting." :
+            !includeBootstrapper ? "Ready to export. Customers must install ThreadLight Components through VCC first." :
             "Ready to create a Unity package.";
-        summary.style.color = string.IsNullOrWhiteSpace(errorMessage)
+        summary.style.color = string.IsNullOrWhiteSpace(errorMessage) && includeBootstrapper
             ? ThreadlightEditorTheme.TextMuted : ThreadlightEditorTheme.Warning;
         ThreadlightEditorElements.SetButtonEnabled(exportButton, products > 0 &&
             (!includeBootstrapper || bootstrap > 0) && string.IsNullOrWhiteSpace(errorMessage));
@@ -413,16 +476,18 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
     private void ExportPackage()
     {
         RefreshAssets(true);
-        if (selection.CountSelected(ExportKind.Product) == 0 ||
-            includeBootstrapper && selection.CountSelected(ExportKind.Bootstrapper) == 0)
-        { ShowError("Choose product content and prepare the required installer before exporting."); RefreshSummary(); return; }
+        if (selection.CountSelected(ExportKind.Product) == 0)
+        { ShowError("Choose product content before exporting."); RefreshSummary(); return; }
+        if (includeBootstrapper && selection.CountSelected(ExportKind.Bootstrapper) == 0)
+        { ShowError("Prepare the Customer Installer before exporting."); RefreshSummary(); return; }
+        if (!string.IsNullOrWhiteSpace(errorMessage)) return;
         string path = EditorUtility.SaveFilePanel("Export Asset Package", string.Empty, DefaultPackageName(), "unitypackage");
         if (string.IsNullOrWhiteSpace(path)) return;
         List<string> selected = selection.SelectedPaths();
         try
         {
             CustomerPackageExport.Export(selected.ToArray(), path);
-            ShowMessage("Export Complete", $"Exported {selected.Count} selected asset" +
+            ShowMessage("Export Complete", $"Exported {selected.Count} asset" +
                 (selected.Count == 1 ? "." : "s."), MessageType.Info);
         }
         catch (Exception exception)
@@ -437,6 +502,9 @@ public sealed class ThreadlightComponentsAssetExportWindow : EditorWindow
         foreach (char invalid in Path.GetInvalidFileNameChars()) name = name.Replace(invalid, '-');
         return name + ".unitypackage";
     }
+
+    private static string FormatCount(int count, string singular) =>
+        $"{count} {singular}{(count == 1 ? string.Empty : "s")}";
 
     private void ShowError(string message)
     {

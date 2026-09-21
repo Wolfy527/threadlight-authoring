@@ -114,7 +114,8 @@ public static class VrcConstraintUtility
         Component constraint,
         IList<Transform> sources,
         float sourceWeight = 0f,
-        string undoName = "Set VRC Constraint Sources")
+        string undoName = "Set VRC Constraint Sources",
+        IDictionary<Transform, Vector3> sourceRotationOffsets = null)
     {
         if (!IsParentConstraint(constraint) && !IsLookAtConstraint(constraint))
             return false;
@@ -146,7 +147,10 @@ public static class VrcConstraintUtility
             Set(source, "SourceTransform", i < valid.Count ? valid[i] : null);
             Set(source, "Weight", i < valid.Count ? sourceWeight : 0f);
             Set(source, "ParentPositionOffset", Vector3.zero);
-            Set(source, "ParentRotationOffset", Vector3.zero);
+            Vector3 rotationOffset = Vector3.zero;
+            if (i < valid.Count && sourceRotationOffsets != null)
+                sourceRotationOffsets.TryGetValue(valid[i], out rotationOffset);
+            Set(source, "ParentRotationOffset", rotationOffset);
         }
         Set(list, "totalLength", valid.Count);
         SerializedProperty overflow = list.FindPropertyRelative("overflowList");

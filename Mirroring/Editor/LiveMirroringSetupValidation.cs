@@ -78,6 +78,12 @@ public static class LiveMirroringSetupValidation {
         List<Component> componentBuffer) {
         AuthoringLiveMirroringSystem system =
             serializedSystem?.targetObject as AuthoringLiveMirroringSystem;
+        if (system == null || messages == null)
+            return;
+        if (!HasSupportedDataVersion(system, messages)) {
+            LiveMirroringExtensionHealthDiagnostics.Append(messages);
+            return;
+        }
         Collect(system, messages, componentBuffer);
         LiveMirroringEditorExtensionRegistry.DispatchOptionalIsolated(
             LiveMirroringEditorExtensionRegistry.GetValidators(),
@@ -85,6 +91,7 @@ public static class LiveMirroringSetupValidation {
             LiveMirroringExtensionCapabilities.Validation,
             system,
             contributor => contributor.Validate(serializedSystem, messages));
+        LiveMirroringExtensionHealthDiagnostics.Append(messages);
     }
     internal static void Collect(
         AuthoringLiveMirroringSystem system,
@@ -92,40 +99,54 @@ public static class LiveMirroringSetupValidation {
         List<Component> componentBuffer) {
         if (system == null || messages == null)
             return;
+        if (!HasSupportedDataVersion(system, messages))
+            return;
         LiveMirroringEvaluationBuffers graph = LiveMirroringService.AnalyzePairs(system);
+        if (LiveMirroringService.HasAmbiguousAuthoringRoot(system))
+            Add(messages,
+                LiveMirroringValidationSeverity.Error,
+                "Multiple Setups Control This Prefab",
+                "More than one Live Mirroring setup controls this Prefab Root. Keep one setup or move each additional setup to a different Prefab Root.",
+                "@setup");
         if (!system.gameObject.CompareTag("EditorOnly"))
             Add(messages,
                 LiveMirroringValidationSeverity.Warning,
                 "Setup Holder Is Not EditorOnly",
-                "Live Mirroring removes its holder during play mode and upload. Keep it on a dedicated EditorOnly object; child objects are preserved and moved to the holder's parent.",
+                "Move the setup to a dedicated EditorOnly object. ThreadLight removes that object during Play Mode and avatar upload while preserving its children.",
                 "@setup");
         if (system.transform.childCount > 0)
             Add(messages,
                 LiveMirroringValidationSeverity.Warning,
                 "Setup Holder Contains Child Content",
-                "Child objects are preserved during cleanup, but move to the holder's parent. Keep creator content outside the Live Mirroring holder when its hierarchy path must remain unchanged.",
-                "@setup");
-        if (ContainsUnrelatedComponent(system, componentBuffer))
-            Add(messages,
-                LiveMirroringValidationSeverity.Error,
-                "Setup Holder Contains Unrelated Components",
-                "Components on the Live Mirroring holder are removed with it during play mode and upload. Move unrelated components onto another object before continuing.",
+                "Move creator content outside the setup holder when its hierarchy path must remain unchanged. Cleanup preserves child objects but moves them to the holder's parent.",
                 "@setup");
         Transform root = LiveMirroringSetupUtility.ResolveAuthoringRoot(system);
+        GameObject cleanupRoot = root != null
+            ? root.gameObject
+            : system.transform.root.gameObject;
+        if (!CreatorBuildCleaner.CanRemoveAuthoringHolder(
+                system, cleanupRoot, out string cleanupFailure, out _))
+            Add(messages,
+                LiveMirroringValidationSeverity.Error,
+                system.gameObject == cleanupRoot
+                    ? "Setup Holder Is Prefab Root"
+                    : "Setup Holder Contains Unrelated Components",
+                cleanupFailure,
+                "@setup");
         if (!system.applyScaleReference)
             Error(messages,
                 "Shared Scaling Is Required",
-                "Enable Synchronize Scale so every constraint target scales the prefab consistently.",
+                "Enable Synchronize Scale so all constraint targets scale the prefab consistently.",
                 "applyScaleReference");
         else if (system.scaleReference == null)
             Error(messages,
-                "Prefab Scale Reference Required",
-                "Assign the prefab object or content container that should scale with the constraint targets.",
+                "Prefab Scale Object Required",
+                "Assign the prefab object or content container that scales with the targets.",
                 "scaleReference");
         else if (!LiveMirroringSetupUtility.ValidateScaleReferenceForSystem(
                      system, out string scaleReferenceError))
             Error(messages,
-                "Invalid Prefab Scale Reference",
+                "Invalid Prefab Scale Object",
                 scaleReferenceError,
                 "scaleReference");
         if (system.addParentConstraintToPrefabContainer)
@@ -133,7 +154,7 @@ public static class LiveMirroringSetupValidation {
             if (!VrcConstraintUtility.HasParentConstraint)
                 Error(messages,
                     "VRC Parent Constraint Unavailable",
-                    "The installed VRChat SDK does not provide the Parent Constraint requested for the prefab container.",
+                    "The installed VRChat SDK does not provide VRC Parent Constraints. Update the SDK or disable Constrain Prefab to Targets.",
                     "addParentConstraintToPrefabContainer");
             int sourceCount = 0;
             if (system.pairs != null)
@@ -147,16 +168,24 @@ public static class LiveMirroringSetupValidation {
             if (sourceCount > 16)
                 Error(messages,
                     "Too Many Constraint Sources",
-                    $"The Prefab Container would have {sourceCount} sources, but VRChat supports 16 keyable sources.",
+                    $"The Prefab Container would use {sourceCount} constraint sources, but VRChat supports 16. Reduce generated targets or disable Constrain Prefab to Targets.",
                     "addParentConstraintToPrefabContainer");
         }
         if (system.showScenePreview && system.previewSource == null)
             Add(messages,
                 LiveMirroringValidationSeverity.Info,
-                "Preview Source Not Assigned",
-                "Assign a preview source to display scene ghosts. Mirroring still works without one.",
+                "Preview Object Not Assigned",
+                "Assign a Preview Object to display Scene Preview. Mirroring still works without one.",
                 "previewSource");
-        if (system.pairs == null || system.pairs.Length == 0) {
+        if (system.pairs == null) {
+            Add(messages,
+                LiveMirroringValidationSeverity.Error,
+                "Saved Target List Is Damaged",
+                "The saved target list is missing. Restore an unaffected copy before continuing. An empty saved list remains supported.",
+                "pairs");
+            return;
+        }
+        if (system.pairs.Length == 0) {
             Add(messages,
                 LiveMirroringValidationSeverity.Info,
                 "No Targets",
@@ -172,7 +201,7 @@ public static class LiveMirroringSetupValidation {
                     !IsWithin(pair.mirroredTarget, root)))
                     Add(messages, LiveMirroringValidationSeverity.Warning,
                         PairName(pair, fact.Index),
-                        "One or both references are outside the configured prefab root and may not survive prefab saving.",
+                        "One or both targets are outside the Prefab Root and may be lost when the prefab is saved. Move them under the Prefab Root.",
                         PairPath(fact.Index));
                 continue;
             }
@@ -185,12 +214,15 @@ public static class LiveMirroringSetupValidation {
                     PairName(pair, fact.Index), issue, PairPath(fact.Index));
         }
     }
-    private static string PairIssue(LiveMirroringPairStatus status) => status switch {
-        LiveMirroringPairStatus.MissingPair => "The pair data is missing.",
-        LiveMirroringPairStatus.MissingReference => "A missing source or mirrored reference will receive a generated target when you Build.",
-        LiveMirroringPairStatus.SelfReference => "The source and mirrored target must be different objects.",
+    internal static string PairIssue(LiveMirroringPairStatus status) => status switch {
+        LiveMirroringPairStatus.MissingPair => "Target data is missing.",
+        LiveMirroringPairStatus.MissingReference => "ThreadLight creates a missing source or mirrored target during Build.",
+        LiveMirroringPairStatus.SameObject => "Assign different source and mirrored targets.",
+        LiveMirroringPairStatus.NestedTargets => "Assign separate targets; a parent and child cannot mirror each other.",
+        LiveMirroringPairStatus.PersistentReference => "Choose scene objects instead of prefab-asset references.",
+        LiveMirroringPairStatus.CrossSceneReference => "Move both targets into the setup's scene.",
         LiveMirroringPairStatus.DuplicateTarget => "Another enabled pair already controls this mirrored target.",
-        LiveMirroringPairStatus.Cycle => "This pair creates a mirroring cycle and will be skipped.",
+        LiveMirroringPairStatus.Cycle => "This relationship creates a mirroring cycle. Change or remove one relationship.",
         _ => null
     };
     private static void Error(
@@ -199,6 +231,26 @@ public static class LiveMirroringSetupValidation {
         string message,
         string propertyPath) => Add(messages,
             LiveMirroringValidationSeverity.Error, title, message, propertyPath);
+    private static bool HasSupportedDataVersion(
+        AuthoringLiveMirroringSystem system,
+        List<LiveMirroringValidationMessage> messages) {
+        if (system.DataVersion < 0) {
+            Error(messages,
+                "Saved Setup Is Damaged",
+                "This Live Mirroring setup has an invalid saved version. Restore an unaffected copy before continuing. No changes were made.",
+                "@setup");
+            return false;
+        }
+        if (system.DataVersion >
+            LiveMirroringMigrationService.CurrentDataVersion) {
+            Error(messages,
+                "Newer ThreadLight Authoring Required",
+                "This setup was saved by a newer ThreadLight Authoring version. Update ThreadLight Authoring, then reopen it. No changes were made.",
+                "@setup");
+            return false;
+        }
+        return true;
+    }
     private static void Add(
         List<LiveMirroringValidationMessage> messages,
         LiveMirroringValidationSeverity severity,
@@ -219,35 +271,6 @@ public static class LiveMirroringSetupValidation {
     private static bool IsWithin(Transform target, Transform root) {
         return target != null &&
                (target == root || target.IsChildOf(root));
-    }
-    private static bool ContainsUnrelatedComponent(
-        AuthoringLiveMirroringSystem system,
-        List<Component> componentBuffer) {
-        if (system == null)
-            return false;
-        if (componentBuffer == null) {
-            Component[] components = system.GetComponents<Component>();
-            return ContainsNonAuthoringComponent(system, components);
-        }
-        componentBuffer.Clear();
-        system.GetComponents(componentBuffer);
-        return ContainsNonAuthoringComponent(system, componentBuffer);
-    }
-    private static bool ContainsNonAuthoringComponent(
-        AuthoringLiveMirroringSystem system,
-        IReadOnlyList<Component> components) {
-        for (int i = 0; i < components.Count; i++) {
-            Component component = components[i];
-            if (component == null ||
-                component is Transform ||
-                component == system ||
-                component is CreatorHierarchyMetadata ||
-                component is CreatorGeneratedEditorOnlyObject) {
-                continue;
-            }
-            return true;
-        }
-        return false;
     }
 }
 }

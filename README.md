@@ -20,6 +20,11 @@ Save the finished prefab, then open **Tools > ThreadLight > Export Asset Package
 Add its product content, review the selected dependencies, and keep the installer
 included for customers who do not already have ThreadLight Components.
 
+The export window runs the same conversion review used by the final export before
+opening the save dialog. If the installer is excluded, the package remains
+exportable but the window keeps the requirement visible: customers must install
+ThreadLight Components through VPM before importing it.
+
 Export converts supported creator components inside the customer package and
 leaves the source prefab unchanged. Unity's standard export does not perform
 this conversion.
@@ -31,6 +36,19 @@ If export stops, use the reported issue to prepare the prefab:
 - For an unsupported schema, update the creator tools and rebuild the prefab.
 - For a creator-only resource reference, finish authoring or copy the required
   product resource into Assets and assign that copy before exporting.
+
+Live Mirroring pauses when more than one setup controls the same prefab root, when
+saved data is invalid or newer than the installed Authoring package, or when a
+mutation-critical extension cannot load. Upload cleanup also stops before changing
+the upload copy if an authoring holder is the upload root or contains unrelated
+runtime components.
+The public cleanup methods and play-mode cleanup enforce the same rule, including
+direct calls against prefab assets.
+
+Creator and customer Live Mirroring implementations remain independent, but use
+the same fail-closed topology policy for same-object, nested, persistent-asset,
+cross-scene, duplicate-target, and cyclic pairs. Development conformance tests
+keep those decisions aligned across the export boundary.
 
 ## Requirements
 

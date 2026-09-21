@@ -7,7 +7,16 @@ using UnityEngine;
 
 internal enum LiveMirroringPairStatus
 {
-    Accepted, Disabled, MissingPair, MissingReference, SelfReference, DuplicateTarget, Cycle
+    Accepted,
+    Disabled,
+    MissingPair,
+    MissingReference,
+    SameObject,
+    NestedTargets,
+    PersistentReference,
+    CrossSceneReference,
+    DuplicateTarget,
+    Cycle
 }
 
 internal readonly struct LiveMirroringPairFact
@@ -84,6 +93,14 @@ internal sealed class LiveMirroringEvaluationBuffers
     {
         AuthoringLiveMirroringSystem.MirrorPair[] pairs = system?.pairs;
         Transform[] handles = system?.scaleHandles;
+        Analyze(system, pairs, handles);
+    }
+
+    internal void Analyze(
+        AuthoringLiveMirroringSystem system,
+        AuthoringLiveMirroringSystem.MirrorPair[] pairs,
+        Transform[] handles)
+    {
         if (Matches(system, pairs, handles)) return;
         Capture(system, pairs, handles);
         Targets.Clear(); TargetSet.Clear(); PairFacts.Clear(); EnabledPairs.Clear(); ActiveTargets.Clear();
@@ -151,7 +168,17 @@ internal sealed class LiveMirroringEvaluationBuffers
         if (!system.ShouldMirrorOppositeTarget(pair))
             return LiveMirroringPairStatus.Disabled;
         if (pair.sourceTarget == null || pair.mirroredTarget == null) return LiveMirroringPairStatus.MissingReference;
-        if (pair.sourceTarget == pair.mirroredTarget) return LiveMirroringPairStatus.SelfReference;
+        if (pair.sourceTarget == pair.mirroredTarget)
+            return LiveMirroringPairStatus.SameObject;
+        if (pair.sourceTarget.IsChildOf(pair.mirroredTarget) ||
+            pair.mirroredTarget.IsChildOf(pair.sourceTarget))
+            return LiveMirroringPairStatus.NestedTargets;
+        if (UnityEditor.EditorUtility.IsPersistent(pair.sourceTarget) ||
+            UnityEditor.EditorUtility.IsPersistent(pair.mirroredTarget))
+            return LiveMirroringPairStatus.PersistentReference;
+        if (pair.sourceTarget.gameObject.scene != system.gameObject.scene ||
+            pair.mirroredTarget.gameObject.scene != system.gameObject.scene)
+            return LiveMirroringPairStatus.CrossSceneReference;
         if (!controlled.Add(pair.mirroredTarget)) return LiveMirroringPairStatus.DuplicateTarget;
         if (CanReach(pair.mirroredTarget, pair.sourceTarget))
         {
@@ -304,6 +331,28 @@ public static class LiveMirroringService
                 : ResolveNestedAuthoringRoot(system, parent);
     }
 
+    /// <summary>
+    /// Returns true when more than one Live Mirroring system resolves to the
+    /// same authoring root. Mutating consumers use this shared decision to
+    /// avoid two copied setup holders fighting over one prefab.
+    /// </summary>
+    internal static bool HasAmbiguousAuthoringRoot(
+        AuthoringLiveMirroringSystem system)
+    {
+        Transform root = ResolveAuthoringRoot(system);
+        if (system == null || root == null) return false;
+        AuthoringLiveMirroringSystem[] systems =
+            root.GetComponentsInChildren<AuthoringLiveMirroringSystem>(true);
+        for (int i = 0; i < systems.Length; i++)
+        {
+            AuthoringLiveMirroringSystem other = systems[i];
+            if (other != null && other != system &&
+                ResolveAuthoringRoot(other) == root)
+                return true;
+        }
+        return false;
+    }
+
     private static Transform ResolveNestedAuthoringRoot(
         AuthoringLiveMirroringSystem system,
         Transform parent)
@@ -320,6 +369,22 @@ public static class LiveMirroringService
     }
 
     internal static LiveMirroringEvaluationBuffers AnalyzePairs(AuthoringLiveMirroringSystem system) => Evaluate(system);
+
+    internal static LiveMirroringPairStatus AnalyzeCandidatePair(
+        AuthoringLiveMirroringSystem system,
+        AuthoringLiveMirroringSystem.MirrorPair candidate)
+    {
+        if (system == null || candidate == null)
+            return LiveMirroringPairStatus.MissingPair;
+        AuthoringLiveMirroringSystem.MirrorPair[] existing = system.pairs ??
+            System.Array.Empty<AuthoringLiveMirroringSystem.MirrorPair>();
+        var prospective = new AuthoringLiveMirroringSystem.MirrorPair[existing.Length + 1];
+        System.Array.Copy(existing, prospective, existing.Length);
+        prospective[existing.Length] = candidate;
+        var evaluation = new LiveMirroringEvaluationBuffers();
+        evaluation.Analyze(system, prospective, system.scaleHandles);
+        return evaluation.PairFacts[evaluation.PairFacts.Count - 1].Status;
+    }
     internal static LiveMirroringEvaluationBuffers Evaluate(AuthoringLiveMirroringSystem system)
     {
         LiveMirroringEvaluationBuffers evaluation = system.evaluationBuffers ??= new LiveMirroringEvaluationBuffers();

@@ -13,13 +13,13 @@ public sealed class LiveMirroringExtensionExampleSettingsEditor : Editor
         VisualElement root = ThreadlightEditorElements.CreateInspectorRoot();
         root.Add(ThreadlightEditorElements.CreateInspectorBanner(
             "Live Mirroring Extension Example",
-            "Sample-owned settings for validation and preview customization.",
+            "Shows how an extension can add its own validation and preview behavior.",
             ThreadlightEditorTheme.ProjectAccent
         ));
 
         VisualElement section = ThreadlightEditorElements.CreatePageSection(
             "Example Settings",
-            "These fields demonstrate extension-owned configuration without changing Live Mirroring's serialized data.",
+            "Try these sample options without changing Live Mirroring's own saved settings.",
             ThreadlightEditorTheme.ProjectAccent,
             out VisualElement content
         );

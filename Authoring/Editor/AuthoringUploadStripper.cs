@@ -18,6 +18,15 @@ public class AuthoringUploadStripper : IVRCSDKPreprocessAvatarCallback
         if (avatarGameObject == null)
             return true;
 
+        if (!CreatorBuildCleaner.CanStripAuthoringComponentsFrom(
+                avatarGameObject,
+                out string failureMessage,
+                out Object failureContext))
+        {
+            Debug.LogError(failureMessage, failureContext);
+            return false;
+        }
+
         Stopwatch stopwatch = Stopwatch.StartNew();
         CreatorBuildCleaner.CleanupReport report =
             CreatorBuildCleaner.StripAuthoringComponentsFrom(

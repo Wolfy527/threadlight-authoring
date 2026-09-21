@@ -14,46 +14,46 @@ using UnityEditor;
 /// </summary>
 public static class CustomerPackageExport
 {
+    public sealed class PreflightResult
+    {
+        internal PreflightResult(bool canExport, string userMessage, string technicalDetails)
+        {
+            CanExport = canExport;
+            UserMessage = userMessage ?? string.Empty;
+            TechnicalDetails = technicalDetails ?? string.Empty;
+        }
+
+        public bool CanExport { get; }
+        public string UserMessage { get; }
+        public string TechnicalDetails { get; }
+    }
+
+    private sealed class PreparedExport
+    {
+        internal readonly Dictionary<string, byte[]> Replacements =
+            new Dictionary<string, byte[]>(StringComparer.Ordinal);
+        internal readonly Dictionary<string, string> SourceCopies =
+            new Dictionary<string, string>(StringComparer.Ordinal);
+    }
+
+    private sealed class PreflightException : InvalidOperationException
+    {
+        internal PreflightException(string userMessage, string technicalDetails, Exception innerException = null)
+            : base(technicalDetails, innerException) => UserMessage = userMessage;
+
+        internal string UserMessage { get; }
+    }
+
+    public static PreflightResult Preflight(string[] assetPaths)
+    {
+        return Evaluate(assetPaths, out PreparedExport _);
+    }
+
     public static void Export(string[] assetPaths, string destination)
     {
-        if (assetPaths == null || assetPaths.Length == 0)
-            throw new ArgumentException("Select product assets before exporting.");
-        var converters = DiscoverConverters();
-        var replacements = new Dictionary<string, byte[]>(StringComparer.Ordinal);
-        var sourceCopies = new Dictionary<string, string>(StringComparer.Ordinal);
-        foreach (string path in assetPaths.Distinct(StringComparer.Ordinal))
-        {
-            if (!path.StartsWith("Assets/", StringComparison.Ordinal))
-                throw new InvalidOperationException("Only selected project assets may be exported: " + path);
-            if (AssetDatabase.IsValidFolder(path)) continue;
-            string[] dependencies = AssetDatabase.GetDependencies(path, true);
-            bool creatorDependency = dependencies.Any(IsCreatorAsset);
-            if (!creatorDependency) continue;
-            if (Path.GetExtension(path) != ".prefab")
-                throw new InvalidOperationException("Customer conversion currently supports saved prefabs. " +
-                    "This asset still requires creator tools: " + path);
-            string source = File.ReadAllText(path);
-            if (!source.StartsWith("%YAML", StringComparison.Ordinal))
-                throw new InvalidOperationException("Save this prefab using Unity text serialization before exporting: " + path);
-            // Nested/variant overrides can replace schema fields on inherited
-            // documents. Do not silently emit an unconverted override contract.
-            if (Regex.IsMatch(source, @"(?m)^--- !u!1001 "))
-                throw new InvalidOperationException("This prefab contains nested or variant creator state. " +
-                    "Create a separate unpacked customer export prefab first: " + path);
-            string converted = ConvertPrefabText(source, converters);
-            foreach (Match reference in Regex.Matches(converted, @"\{fileID: -?\d+, guid: ([a-f0-9]{32}), type: \d+\}"))
-            {
-                string dependency = AssetDatabase.GUIDToAssetPath(reference.Groups[1].Value);
-                if (IsCreatorAsset(dependency))
-                    throw new InvalidOperationException("Customer export still references creator-only content: " +
-                        dependency + " in " + path + ". Finish authoring or copy the required product resource into Assets.");
-            }
-            if (converted != source)
-            {
-                replacements.Add(AssetDatabase.AssetPathToGUID(path) + "/asset", new UTF8Encoding(false).GetBytes(converted));
-                sourceCopies.Add(path, source);
-            }
-        }
+        PreflightResult preflight = Evaluate(assetPaths, out PreparedExport prepared);
+        if (!preflight.CanExport)
+            throw new InvalidOperationException(preflight.TechnicalDetails);
 
         string fullDestination = Path.GetFullPath(destination);
         string directory = Path.GetDirectoryName(fullDestination);
@@ -66,10 +66,10 @@ public static class CustomerPackageExport
             // Default is synchronous: conversion must finish before a package
             // replaces any existing customer deliverable.
             AssetDatabase.ExportPackage(assetPaths, nativePackage, ExportPackageOptions.Default);
-            foreach (var original in sourceCopies)
+            foreach (var original in prepared.SourceCopies)
                 if (File.ReadAllText(original.Key) != original.Value)
                     throw new InvalidOperationException("A creator prefab changed during export. Save it and export again: " + original.Key);
-            CustomerPackageArchive.Rewrite(nativePackage, convertedPackage, replacements);
+            CustomerPackageArchive.Rewrite(nativePackage, convertedPackage, prepared.Replacements);
             if (File.Exists(fullDestination)) File.Replace(convertedPackage, fullDestination, null);
             else File.Move(convertedPackage, fullDestination);
         }
@@ -81,6 +81,88 @@ public static class CustomerPackageExport
     }
 
     public static string ConvertPrefabText(string source) => ConvertPrefabText(source, DiscoverConverters());
+
+    private static PreflightResult Evaluate(string[] assetPaths, out PreparedExport prepared)
+    {
+        prepared = null;
+        try
+        {
+            prepared = Prepare(assetPaths);
+            return new PreflightResult(true, string.Empty, string.Empty);
+        }
+        catch (PreflightException exception)
+        {
+            return new PreflightResult(false, exception.UserMessage, exception.Message);
+        }
+        catch (Exception exception)
+        {
+            return new PreflightResult(false,
+                "ThreadLight could not verify this export safely. Check the Console for details, then refresh.",
+                exception.Message);
+        }
+    }
+
+    private static PreparedExport Prepare(string[] assetPaths)
+    {
+        if (assetPaths == null || assetPaths.Length == 0)
+            throw Stop("Choose product content before exporting.", "Select product assets before exporting.");
+        Dictionary<string, ICustomerExportDocumentConverter> converters;
+        try { converters = DiscoverConverters(); }
+        catch (Exception exception)
+        {
+            throw Stop("ThreadLight customer export is unavailable. Check the Console for details, then refresh.",
+                exception.Message, exception);
+        }
+
+        var prepared = new PreparedExport();
+        foreach (string path in assetPaths.Distinct(StringComparer.Ordinal))
+        {
+            if (string.IsNullOrWhiteSpace(path) || !path.StartsWith("Assets/", StringComparison.Ordinal))
+                throw Stop("Choose files from this project's Assets folder.",
+                    "Only selected project assets may be exported: " + (path ?? "<null>"));
+            if (AssetDatabase.IsValidFolder(path)) continue;
+            string[] dependencies = AssetDatabase.GetDependencies(path, true);
+            if (!dependencies.Any(IsCreatorAsset)) continue;
+            if (!string.Equals(Path.GetExtension(path), ".prefab", StringComparison.OrdinalIgnoreCase))
+                throw Stop("This file contains ThreadLight authoring data, but customer conversion supports " +
+                    "prefabs only. Create a customer-ready prefab and select it.\n\n" + path,
+                    "Customer conversion currently supports saved prefabs. This asset still requires creator tools: " + path);
+            string source = File.ReadAllText(path);
+            if (!source.StartsWith("%YAML", StringComparison.Ordinal))
+                throw Stop("Set Asset Serialization Mode to Force Text, save the prefab, then refresh.\n\n" + path,
+                    "Save this prefab using Unity text serialization before exporting: " + path);
+            if (Regex.IsMatch(source, @"(?m)^--- !u!1001 "))
+                throw Stop("This prefab contains inherited ThreadLight authoring data that cannot be converted " +
+                    "safely. Create a separate unpacked customer prefab, then refresh.\n\n" + path,
+                    "This prefab contains nested or variant creator state. Create a separate unpacked customer export prefab first: " + path);
+
+            string converted;
+            try { converted = ConvertPrefabText(source, converters); }
+            catch (Exception exception)
+            {
+                throw Stop("This prefab uses ThreadLight authoring data that cannot be converted safely. " +
+                    "Update ThreadLight, rebuild the creator prefab, then refresh.\n\n" + path,
+                    exception.Message + " Asset: " + path, exception);
+            }
+            foreach (Match reference in Regex.Matches(converted, @"\{fileID: -?\d+, guid: ([a-f0-9]{32}), type: \d+\}"))
+            {
+                string dependency = AssetDatabase.GUIDToAssetPath(reference.Groups[1].Value);
+                if (!IsCreatorAsset(dependency)) continue;
+                throw Stop("This prefab still references ThreadLight authoring content. Finish authoring or " +
+                    "copy the required product asset into Assets, then refresh.\n\n" + path,
+                    "Customer export still references creator-only content: " + dependency + " in " + path +
+                    ". Finish authoring or copy the required product resource into Assets.");
+            }
+            if (converted == source) continue;
+            prepared.Replacements.Add(AssetDatabase.AssetPathToGUID(path) + "/asset",
+                new UTF8Encoding(false).GetBytes(converted));
+            prepared.SourceCopies.Add(path, source);
+        }
+        return prepared;
+    }
+
+    private static PreflightException Stop(string userMessage, string technicalDetails, Exception innerException = null) =>
+        new PreflightException(userMessage, technicalDetails, innerException);
 
     private static string ConvertPrefabText(string source,
         Dictionary<string, ICustomerExportDocumentConverter> converters)

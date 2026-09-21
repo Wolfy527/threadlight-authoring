@@ -15,14 +15,19 @@ public sealed partial class LiveMirroringSetupWindow {
     private void RebuildWorkspace() {
         if (workspace == null)
             return;
+        CancelDiagnosticNavigationPresentation();
         workspace.Unbind();
         workspace.Clear();
         footer?.Clear();
         validationSlots.Clear();
+        targetCards.Clear();
+        propertyNavigationTargets.Clear();
+        addSelectedObjectsButton = null;
         bool managed = IsCurrentSystemManagedExternally(out string managerName);
         AddFooterActions(managed, managerName);
         if (currentSystem == null) {
             AddCreationWorkspace();
+            RememberWorkspaceComposition(managed, managerName);
             return;
         }
         if (!SupportsInstalledData(currentSystem)) {
@@ -31,18 +36,20 @@ public sealed partial class LiveMirroringSetupWindow {
             workspace.Add(ThreadlightEditorElements.CreateMessage(
                 "Unsupported Mirroring Data",
                 newerData
-                    ? "This setup was saved by a newer ThreadLight Components version. Update the package or reopen it with the version that created the setup. No changes were made."
+                    ? "This setup was saved by a newer ThreadLight Authoring version. Update the package or reopen it with the version that created the setup. No changes were made."
                     : "This setup has an invalid data version and cannot be edited safely. Reopen an unaffected copy or restore the component from source control. No changes were made.",
                 MessageType.Error
             ));
+            RememberWorkspaceComposition(managed, managerName);
             return;
         }
         if (managed) {
             workspace.Add(ThreadlightEditorElements.CreateMessage(
                 "Managed by Another Builder",
-                $"This ThreadLight Mirroring setup is owned by {managerName}. Edit and rebuild it there so its generated settings stay consistent.",
+                $"{managerName} owns this setup. Edit and rebuild it there.",
                 MessageType.Warning
             ));
+            RememberWorkspaceComposition(managed, managerName);
             return;
         }
         serializedSystem = new SerializedObject(currentSystem);
@@ -52,6 +59,8 @@ public sealed partial class LiveMirroringSetupWindow {
         AddMirroringSettings();
         AddPreviewSettings();
         AddDistributionSettings();
+        ArrangeWorkspaceColumns();
+        RememberWorkspaceComposition(managed, managerName);
         workspace.Bind(serializedSystem);
         workspace.TrackSerializedObjectValue(
             serializedSystem,
@@ -63,7 +72,7 @@ public sealed partial class LiveMirroringSetupWindow {
         if (candidateRoot == null) {
             workspace.Add(ThreadlightEditorElements.CreateMessage(
                 "Choose a Prefab Root",
-                "Select a scene object or an object inside Prefab Mode, then use it as the prefab root."
+                "Select the scene object or Prefab Mode root that will contain the mirrored targets."
             ));
             return;
         }
@@ -80,7 +89,7 @@ public sealed partial class LiveMirroringSetupWindow {
                 out string managerName)) {
             workspace.Add(ThreadlightEditorElements.CreateMessage(
                 "Managed by Another Builder",
-                $"This prefab root is managed by {managerName}. Create or edit its ThreadLight Mirroring setup there.",
+                $"{managerName} manages this Prefab Root. Create or edit its ThreadLight Mirroring setup there.",
                 MessageType.Warning
             ));
             return;
@@ -91,8 +100,8 @@ public sealed partial class LiveMirroringSetupWindow {
             workspace.Add(ThreadlightEditorElements.CreateMessage(
                 "Existing Setup Found",
                 existing.Length == 1
-                    ? "This root already contains a ThreadLight Mirroring setup."
-                    : $"This root contains {existing.Length} ThreadLight Mirroring setups. Choose the one you want to edit above.",
+                    ? "This Prefab Root already contains one ThreadLight Mirroring setup."
+                    : $"This Prefab Root contains {existing.Length} ThreadLight Mirroring setups. Choose one above.",
                 MessageType.Warning
             ));
             if (existing.Length == 1) {
@@ -102,18 +111,18 @@ public sealed partial class LiveMirroringSetupWindow {
                         () => SetSystem(existing[0]),
                         ThreadlightEditorTheme.Palette(ThreadlightEditorTone.Core).Accent),
                     "Open Existing Setup",
-                    "Edit the ThreadLight Mirroring setup already stored under this prefab root."));
+                    "Opens the setup stored under this Prefab Root."));
             }
             return;
         }
         LiveMirroringSetupCard scaleReferenceCard = CreateWorkspaceSection(
-            "Prefab Scale Reference",
-            "Optionally choose a prefab object or content container. Build creates an owned Prefab Container when this is empty.",
+            "Prefab Scale Object",
+            "Select the object that scales with the targets, or leave it empty for Build to create a Prefab Container.",
             ThreadlightEditorTone.Core,
-            "SETUP"
+            "SETUP", stateIdentity: "SETUP:Prefab Scale Reference"
         );
         ObjectField scaleReferenceField = new ObjectField(
-            "Prefab Scale Reference") {
+            "Prefab Scale Object") {
             objectType = typeof(Transform),
             allowSceneObjects = true
         };
@@ -128,8 +137,8 @@ public sealed partial class LiveMirroringSetupWindow {
         });
         AddTooltip(
             scaleReferenceField,
-            "Prefab Scale Reference",
-            "Assign the prefab object or content container that should scale. It cannot be the prefab root or part of the target hierarchy.");
+            "Prefab Scale Object",
+            "Sets the prefab object or content container that scales. It cannot be the Prefab Root or part of the target hierarchy.");
         scaleReferenceCard.Add(scaleReferenceField);
         workspace.Add(scaleReferenceCard);
         if (candidateScaleReference != null &&
@@ -138,7 +147,7 @@ public sealed partial class LiveMirroringSetupWindow {
                 candidateScaleReference,
                 out string scaleReferenceError)) {
             workspace.Add(ThreadlightEditorElements.CreateMessage(
-                "Invalid Scale Reference",
+                "Invalid Prefab Scale Object",
                 scaleReferenceError,
                 MessageType.Warning
             ));
@@ -146,8 +155,8 @@ public sealed partial class LiveMirroringSetupWindow {
         workspace.Add(ThreadlightEditorElements.CreateMessage(
             "Ready to Create",
             candidateScaleReference == null
-                ? "Build creates an owned Prefab Container for shared scaling, then creates the EditorOnly setup holder and its targets."
-                : "Build creates the EditorOnly setup holder and its targets. Your prefab root and existing hierarchy will not be replaced."
+                ? "Build will create a ThreadLight-owned Prefab Container, EditorOnly setup holder, and targets."
+                : "Build will create the EditorOnly setup holder and targets without replacing the Prefab Root or existing hierarchy."
         ));
         if (!string.IsNullOrWhiteSpace(creationError)) {
             workspace.Add(ThreadlightEditorElements.CreateMessage(

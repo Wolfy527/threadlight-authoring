@@ -15,14 +15,14 @@ public sealed class LiveMirroringSystemEditor : Editor {
         VisualElement root = ThreadlightEditorElements.CreateInspectorRoot();
         root.Add(ThreadlightEditorElements.CreateInspectorBanner(
             "Live Mirroring System",
-            "Stores the target mirroring and scene preview settings used by ThreadLight Mirroring.",
+            "Mirrors source transforms to opposite-side targets and Scene Preview while you edit.",
             ThreadlightEditorTheme.WorkspacePrefabAccent
         ));
         VisualElement validationHost = new VisualElement();
         root.Add(validationHost);
         VisualElement section = ThreadlightEditorElements.CreatePageSection(
             "System Overview",
-            "This authoring system works automatically in the editor. Review its generated state or open the Builder to make changes.",
+            "Mirroring updates automatically in Edit Mode. Open ThreadLight Mirroring to change the setup.",
             ThreadlightEditorTheme.WorkspacePrefabAccent,
             out VisualElement status
         );
@@ -69,7 +69,7 @@ public sealed class LiveMirroringSystemEditor : Editor {
         if (system != null && system.DataVersion < 0) {
             validationHost.Add(ThreadlightEditorElements.CreateMessage(
                 "Invalid Mirroring Data",
-                $"This Live Mirroring System has an invalid data version ({system.DataVersion}). Restore the prefab from a valid copy before editing it.",
+                $"This setup has invalid saved data ({system.DataVersion}). Restore a valid prefab copy before editing.",
                 MessageType.Error
             ));
             return false;
@@ -77,8 +77,8 @@ public sealed class LiveMirroringSystemEditor : Editor {
         if (system != null &&
             system.DataVersion > LiveMirroringMigrationService.CurrentDataVersion) {
             validationHost.Add(ThreadlightEditorElements.CreateMessage(
-                "Newer Mirroring Data",
-                $"This Live Mirroring System uses data version {system.DataVersion}, but the installed scripts support up to version {LiveMirroringMigrationService.CurrentDataVersion}. Import the newer scripts before editing it.",
+                "Newer ThreadLight Authoring Required",
+                $"This setup uses data version {system.DataVersion}; the installed package supports up to {LiveMirroringMigrationService.CurrentDataVersion}. Update ThreadLight Authoring before editing.",
                 MessageType.Error
             ));
             return false;

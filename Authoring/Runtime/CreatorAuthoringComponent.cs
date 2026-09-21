@@ -52,6 +52,16 @@ public abstract class CreatorAuthoringComponent : MonoBehaviour
 
         playModeRemovalQueued = true;
 
+        GameObject cleanupRoot = transform.root.gameObject;
+        if (!CreatorBuildCleaner.CanStripAuthoringComponentsFrom(
+                cleanupRoot,
+                out string failureMessage,
+                out Object failureContext))
+        {
+            Debug.LogError(failureMessage, failureContext);
+            return;
+        }
+
         CreatorBuildCleaner.StripAuthoringComponent(this);
     }
 
@@ -60,6 +70,15 @@ public abstract class CreatorAuthoringComponent : MonoBehaviour
 
     public virtual bool OnPreprocess()
     {
+        GameObject cleanupRoot = transform.root.gameObject;
+        if (!CreatorBuildCleaner.CanStripAuthoringComponentsFrom(
+                cleanupRoot,
+                out string failureMessage,
+                out Object failureContext))
+        {
+            Debug.LogError(failureMessage, failureContext);
+            return false;
+        }
         CreatorBuildCleaner.StripAuthoringComponent(this);
         return true;
     }

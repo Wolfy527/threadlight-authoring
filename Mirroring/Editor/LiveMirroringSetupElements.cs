@@ -42,9 +42,9 @@ internal class LiveMirroringSetupCard : ThreadlightDisclosureCard {
             title,
             description,
             accent ?? ThreadlightEditorTheme.WorkspacePrefabAccent,
-            fill ?? Color.Lerp(
+            Color.Lerp(
                 ThreadlightEditorTheme.BackgroundDark,
-                ThreadlightEditorTheme.ModuleStandard,
+                fill ?? ThreadlightEditorTheme.ModuleStandard,
                 .1f),
             expanded,
             kind,
@@ -56,6 +56,7 @@ internal class LiveMirroringSetupCard : ThreadlightDisclosureCard {
         Accessories.Add(Badge);
     }
     public Color InteractionAccent => Accent;
+    public void Reveal() => SetDisclosureExpanded(true, false);
     public void SetValidationState(int errors, int warnings) {
         bool visible = errors > 0 || warnings > 0;
         if (!visible) {
@@ -77,6 +78,7 @@ internal sealed class LiveMirroringTargetCard : LiveMirroringSetupCard {
             expanded, "TARGET", ThreadlightEditorTheme.Palette(ThreadlightEditorTone.Feature).Fill,
             changed) {
         AddToClassList("threadlight-mirroring-target-card");
+        focusable = true;
         Heading.text = title;
         Badge.AddToClassList("threadlight-mirroring-target-validation-badge");
         RemoveButton = LiveMirroringSetupElements.CreateButton("Remove", remove, false, true,
@@ -85,5 +87,39 @@ internal sealed class LiveMirroringTargetCard : LiveMirroringSetupCard {
         Accessories.Add(RemoveButton);
     }
     public void SetTitle(string title) => Heading.text = string.IsNullOrWhiteSpace(title) ? "Target" : title.Trim();
+    public void SetPairState(LiveMirroringPairStatus status, int errors, int warnings) {
+        bool canonicalProblem = status != LiveMirroringPairStatus.Accepted &&
+            status != LiveMirroringPairStatus.Disabled &&
+            status != LiveMirroringPairStatus.MissingReference;
+        if (!canonicalProblem && (errors > 0 || warnings > 0)) {
+            SetValidationState(errors, warnings);
+            return;
+        }
+        string text;
+        Color color;
+        switch (status) {
+            case LiveMirroringPairStatus.Accepted:
+                text = "READY"; color = ThreadlightEditorTheme.Success; break;
+            case LiveMirroringPairStatus.Disabled:
+                text = "SOURCE ONLY"; color = ThreadlightEditorTheme.TextMuted; break;
+            case LiveMirroringPairStatus.MissingReference:
+                text = "WILL CREATE"; color = ThreadlightEditorTheme.Success; break;
+            case LiveMirroringPairStatus.SameObject:
+                text = "SELF REFERENCE"; color = ThreadlightEditorTheme.Error; break;
+            case LiveMirroringPairStatus.NestedTargets:
+                text = "NESTED TARGETS"; color = ThreadlightEditorTheme.Error; break;
+            case LiveMirroringPairStatus.PersistentReference:
+                text = "PREFAB ASSET"; color = ThreadlightEditorTheme.Error; break;
+            case LiveMirroringPairStatus.CrossSceneReference:
+                text = "OTHER SCENE"; color = ThreadlightEditorTheme.Error; break;
+            case LiveMirroringPairStatus.DuplicateTarget:
+                text = "DUPLICATE TARGET"; color = ThreadlightEditorTheme.Error; break;
+            case LiveMirroringPairStatus.Cycle:
+                text = "CYCLE"; color = ThreadlightEditorTheme.Error; break;
+            default:
+                text = "NEEDS ATTENTION"; color = ThreadlightEditorTheme.Error; break;
+        }
+        ThreadlightEditorElements.UpdateStatusBadge(Badge, text, color);
+    }
 }
 }

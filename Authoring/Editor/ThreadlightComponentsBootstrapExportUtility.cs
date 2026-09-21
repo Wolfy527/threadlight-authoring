@@ -95,7 +95,7 @@ public static class ThreadlightComponentsBootstrapExportUtility
             TryRemoveIncompleteInstaller(plan != null && plan.CreatedInstaller,
                 installerPath);
             error = exception is UnauthorizedAccessException ? exception.Message :
-                "ThreadLight Components could not create the temporary bootstrapper:\n" +
+                "ThreadLight could not prepare the Customer Installer:\n" +
                 exception.Message;
             return false;
         }
@@ -128,14 +128,14 @@ public static class ThreadlightComponentsBootstrapExportUtility
             error = string.Empty;
             if (!File.Exists(templatePath))
             {
-                error = "ThreadLight Authoring could not find its customer " +
-                        "bootstrapper template. Reinstall or update the authoring package.";
+                error = "ThreadLight could not find the Customer Installer template. " +
+                        "Reinstall or update ThreadLight Authoring.";
                 return false;
             }
             if (!File.Exists(sourcePayloadPath))
             {
-                error = "ThreadLight Authoring could not find its bundled customer " +
-                        "support payload. Reinstall or update the authoring package.";
+                error = "ThreadLight could not find the Customer Installer files. " +
+                        "Reinstall or update ThreadLight Authoring.";
                 return false;
             }
             template = File.ReadAllText(templatePath);
@@ -149,8 +149,9 @@ public static class ThreadlightComponentsBootstrapExportUtility
             bool exists = AssetDatabase.IsValidFolder(installerAssetPath);
             if (exists && !HasOwnershipMarker(markerPath))
                 throw new UnauthorizedAccessException(
-                    "ThreadLight Components refused to replace an existing installer " +
-                    "folder it does not own:\n" + installerAssetPath);
+                    "The Installer Folder contains files not owned by ThreadLight. " +
+                    "Choose a different folder or remove the conflicting files manually:\n" +
+                    installerAssetPath);
             if (!exists)
             {
                 AssetDatabase.CreateFolder(parent, InstallerFolderName);
@@ -337,10 +338,10 @@ public static class ThreadlightComponentsBootstrapExportUtility
             .Trim().TrimEnd('/');
         error = string.Empty;
         if (string.IsNullOrWhiteSpace(normalizedPath))
-            error = "Choose a folder inside Assets for the temporary bootstrapper.";
+            error = "Choose an Installer Folder inside Assets.";
         else if (normalizedPath != "Assets" &&
                  !normalizedPath.StartsWith("Assets/", StringComparison.Ordinal))
-            error = "The temporary bootstrapper must be created inside Assets.";
+            error = "The Customer Installer must be created inside Assets.";
         else
         {
             foreach (string segment in normalizedPath.Split('/'))
@@ -349,7 +350,7 @@ public static class ThreadlightComponentsBootstrapExportUtility
                     segment == ".." ||
                     segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
                 {
-                    error = "The bootstrapper folder path is not valid.";
+                    error = "The Installer Folder path is invalid.";
                     break;
                 }
             }

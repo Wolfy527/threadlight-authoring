@@ -135,7 +135,7 @@ public static class LegacyLiveMirroringBridge
             if (result != VersionedDataMigrationResult.Migrated &&
                 result != VersionedDataMigrationResult.UpToDate)
                 throw new InvalidOperationException(
-                    "The legacy data could not be upgraded through the current schema.");
+                    "The legacy data could not be upgraded to the current format.");
             EnsureLegacyTargetRootMetadata(
                 root, system, currentMetadata, useUndo);
             if (SerializationUtility.HasManagedReferencesWithMissingTypes(system))
@@ -188,7 +188,7 @@ public static class LegacyLiveMirroringBridge
                     UnityEngine.Object.DestroyImmediate(holder);
             }
             system = null;
-            return Fail("Live Mirroring migration was rolled back safely: " +
+            return Fail("Live Mirroring could not migrate this setup to the current format. All changes were rolled back: " +
                 exception.Message, out error);
         }
     }

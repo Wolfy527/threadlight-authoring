@@ -95,6 +95,16 @@ Extension errors are build-blocking. Editor automation should call
 `LiveMirroringSetupUtility.BuildTargets()` repeats the complete preflight and
 stops before mutation when any core or extension error remains.
 
+Use `PropertyPath` only when the diagnostic refers to a real serialized
+property. The Mirroring window offers exact-setting navigation only when that
+path resolves to a rendered bound control. For a diagnostic that belongs to a
+pair but has no concrete serialized child property, use the additive
+five-argument `LiveMirroringValidationMessage` constructor and supply the pair
+index. This explicit pair scope lets the window count and reveal the owning
+pair without guessing from a path prefix. Section paths such as `pairs` remain
+scroll anchors and do not claim field focus. Unknown, malformed, or out-of-range
+destinations remain non-navigable.
+
 Implement `ILiveMirroringPreviewContributor` when a feature must configure a newly
 created ghost or update it after the core preview transform has been applied.
 Preview contributors receive the system, target, and hidden preview instance.

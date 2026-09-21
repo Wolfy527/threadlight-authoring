@@ -14,12 +14,12 @@ public sealed class PrefabIdEditor : UnityEditor.Editor
         VisualElement root = ThreadlightEditorElements.CreateInspectorRoot();
         root.Add(ThreadlightEditorElements.CreateInspectorBanner(
             "Prefab ID",
-            "Stores the identity and compatibility data used to reopen this prefab in ThreadLight Builder.",
+            "Keeps this prefab connected to its saved ThreadLight Builder settings.",
             ThreadlightEditorTheme.ProjectAccent
         ));
         VisualElement section = ThreadlightEditorElements.CreatePageSection(
-            "Stored Metadata",
-            "Read-only identity and compatibility information. This authoring component is removed automatically in play mode and during avatar upload.",
+            "Saved Setup",
+            "Identifies the saved setup and Builder version. ThreadLight removes this component during Play Mode and avatar upload.",
             ThreadlightEditorTheme.ProjectAccent,
             out VisualElement details
         );
@@ -44,11 +44,11 @@ public sealed class PrefabIdEditor : UnityEditor.Editor
             prefabId?.Id
         ));
         details.Add(ThreadlightEditorElements.CreateReadOnlyValue(
-            "Prefab Schema",
+            "Prefab Format Version",
             (prefabId?.PrefabSchema ?? 0).ToString()
         ));
         details.Add(ThreadlightEditorElements.CreateReadOnlyValue(
-            "Builder Data",
+            "Builder Settings Version",
             (prefabId?.BuilderDataVersion ?? 0).ToString()
         ));
 

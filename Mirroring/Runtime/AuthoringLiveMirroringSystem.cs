@@ -139,6 +139,7 @@ public class AuthoringLiveMirroringSystem : CreatorAuthoringComponent
     {
 #if UNITY_EDITOR
         if (!HasSupportedDataVersion) return;
+        if (LiveMirroringService.HasAmbiguousAuthoringRoot(this)) return;
         if (DataVersion < LiveMirroringMigrationService.CurrentDataVersion ||
             RequiresSerializedDefaults)
         {

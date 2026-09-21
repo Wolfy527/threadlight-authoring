@@ -63,8 +63,6 @@ internal sealed class LiveMirroringOwnedHierarchyReconciler
         private readonly Dictionary<string, List<CreatorTargetMetadata>> targetsByStableId =
             new Dictionary<string, List<CreatorTargetMetadata>>();
         internal readonly List<CreatorTargetMetadata> Targets = new List<CreatorTargetMetadata>();
-        internal readonly bool HasCompetingSystem;
-
         internal OwnershipIndex(AuthoringLiveMirroringSystem system, Transform root)
         {
             CreatorAuthoringComponent[] components =
@@ -74,8 +72,8 @@ internal sealed class LiveMirroringOwnedHierarchyReconciler
             {
                 if (!(components[i] is AuthoringLiveMirroringSystem other) || other == system) continue;
                 Transform otherRoot = LiveMirroringSetupUtility.ResolveAuthoringRoot(other);
-                if (otherRoot == root) HasCompetingSystem = true;
-                else if (otherRoot != null && otherRoot.IsChildOf(root)) nestedScopes.Add(otherRoot);
+                if (otherRoot != null && otherRoot != root &&
+                    otherRoot.IsChildOf(root)) nestedScopes.Add(otherRoot);
             }
             for (int i = 0; i < components.Length; i++)
             {
@@ -208,7 +206,7 @@ internal sealed class LiveMirroringOwnedHierarchyReconciler
 
     private LiveMirroringSetupUtility.BuildResult Apply(BuildPlan plan)
     {
-        if (index.HasCompetingSystem)
+        if (LiveMirroringService.HasAmbiguousAuthoringRoot(system))
         {
             Debug.LogWarning(
                 "Live Mirroring found more than one standalone setup for this authoring root and left it unchanged.",

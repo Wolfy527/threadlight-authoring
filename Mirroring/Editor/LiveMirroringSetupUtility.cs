@@ -215,7 +215,7 @@ public static class LiveMirroringSetupUtility
         changed = false; error = null;
         Transform root = ResolveAuthoringRoot(system);
         if (system == null) { error = "Choose a ThreadLight Mirroring setup first."; return false; }
-        if (root == null) { error = "Choose a prefab root before assigning its scale reference."; return false; }
+        if (root == null) { error = "Choose a prefab root before assigning the Prefab Scale Object."; return false; }
         if (system.scaleReference == null)
         {
             Undo.RecordObject(system, "Create Prefab Container");
@@ -317,10 +317,10 @@ public static class LiveMirroringSetupUtility
 
     public static bool ValidateScaleReferenceForRoot(GameObject root, Transform reference, out string error)
     {
-        error = root == null ? "Choose a prefab root before assigning its scale reference." :
+        error = root == null ? "Choose a prefab root before assigning the Prefab Scale Object." :
             reference == null ? "Assign the prefab object or content container that should scale with the constraint targets." :
-            reference == root.transform ? "The prefab root cannot be the scale reference. Assign a separate prefab object or content container." :
-            !reference.IsChildOf(root.transform) ? "The prefab scale reference must be stored inside the selected prefab root." : null;
+            reference == root.transform ? "The Prefab Scale Object cannot be the prefab root itself. Choose a child object that contains the prop's content." :
+            !reference.IsChildOf(root.transform) ? "Choose a Prefab Scale Object inside the selected prefab root." : null;
         return error == null;
     }
 
@@ -329,16 +329,16 @@ public static class LiveMirroringSetupUtility
         if (system == null) { error = "Choose a ThreadLight Mirroring setup first."; return false; }
         Transform root = ResolveAuthoringRoot(system);
         if (!ValidateScaleReferenceForRoot(root != null ? root.gameObject : null, system.scaleReference, out error)) return false;
-        if (system.scaleReference == system.transform) { error = "The Live Mirroring holder cannot be the scale reference."; return false; }
+        if (system.scaleReference == system.transform) { error = "The Prefab Scale Object cannot be the object holding the Live Mirroring component. Choose a separate object containing the prop's content."; return false; }
         if (!LiveMirroringService.HasValidScaleReferenceTopology(system))
-        { error = "The prefab scale reference must be separate from the constraint target hierarchy, not a target or an ancestor or child of one."; return false; }
+        { error = "Choose a Prefab Scale Object separate from the constraint targets. It cannot be a target, contain a target, or be inside a target."; return false; }
         return true;
     }
 
     public static int EnsureMissingPairTargets(AuthoringLiveMirroringSystem system) => BuildTargets(system).CreatedTargets;
     public static BuildResult BuildTargets(AuthoringLiveMirroringSystem system)
     {
-        if (system == null || system.pairs == null || IsManagedByAnotherTool(system)) return default;
+        if (system == null || IsManagedByAnotherTool(system)) return default;
         List<LiveMirroringValidationMessage> messages =
             new List<LiveMirroringValidationMessage>();
         LiveMirroringSetupValidation.CollectAll(system, messages);
@@ -356,6 +356,7 @@ public static class LiveMirroringSetupUtility
                 "Live Mirroring target generation was stopped before " +
                 "changing the hierarchy:\n- " +
                 string.Join("\n- ", errors));
+        if (system.pairs == null) return default;
         Transform root = ResolveAuthoringRoot(system);
         return root != null ? LiveMirroringOwnedHierarchyReconciler.Build(system, root) : default;
     }

@@ -5,40 +5,50 @@ using static Threadlight.Mirroring.Editor.LiveMirroringSetupElements;
 using System.Collections.Generic;
 using UnityEditor;
 using UnityEditor.SceneManagement;
+using UnityEngine;
 using UnityEngine.UIElements;
 public sealed partial class LiveMirroringSetupWindow {
     private void AddFooterActions(bool managed, string managerName) {
         if (footer == null) return;
         bool creating = currentSystem == null;
         bool supportedData = SupportsInstalledData(currentSystem);
+        footer.AddToClassList("threadlight-checker-dock");
+        AddBuildChecker(managed, supportedData, creating);
+        VisualElement row = new VisualElement();
+        row.AddToClassList("threadlight-checker-action-row");
+        row.style.borderTopColor = Color.Lerp(ThreadlightEditorTheme.PanelInset,
+            ThreadlightEditorTheme.WorkspaceReviewAccent, .42f);
         VisualElement copy = ThreadlightEditorElements.CreateFooterCopy(
             managed ? "Managed by Another Builder" : !supportedData ? "Unsupported Live Mirroring Data" :
-                creating ? "Create ThreadLight Mirroring" : "Build ThreadLight Mirroring",
-            managed ? $"Build and export this setup from {managerName}." : creating
-                ? candidateRoot == null ? "Choose a prefab root first." : "Creates only owned setup and target content."
-                : !supportedData ? "Update ThreadLight Components before building or exporting this setup."
-                : "Build again after changing settings.");
-        copy.Add(CreateValidationSlot("@footer"));
-        footer.Add(copy);
+                "Build This Setup",
+            managed ? $"Build and export from {managerName}." : creating
+                ? candidateRoot == null ? "Choose a Prefab Root first." : "Ready to create the setup and targets."
+                : !supportedData ? "Update ThreadLight Authoring before building or exporting."
+                : "Ready to build changes.");
+        row.Add(copy);
         VisualElement actions = new VisualElement();
         actions.AddToClassList("threadlight-mirroring-footer-actions");
+        actions.AddToClassList("threadlight-footer-actions");
         Button build = AddTooltip(CreateButton(
-                creating ? "Create & Build" : "Build Setup", BuildSetup,
+                creating ? "Create and Build" : "Build Setup", BuildSetup,
                 true, false, ThreadlightEditorTheme.WorkspacePrefabAccent),
             creating ? "Create ThreadLight Mirroring" : "Build ThreadLight Mirroring",
             creating
-                ? "Create the owned setup and target hierarchy for the selected prefab root."
-                : "Apply the current settings to the owned target hierarchy.");
+                ? "Creates the setup and target hierarchy under the selected Prefab Root."
+                : "Creates or updates generated targets using these settings.");
         ThreadlightEditorElements.SetButtonEnabled(build,
             !managed && supportedData && (!creating || candidateRoot != null));
+        build.AddToClassList("threadlight-footer-button");
         actions.Add(build);
         Button export = AddTooltip(CreateButton("Export Asset", OpenAssetExporter, false, false,
                 ThreadlightEditorTheme.WorkspaceExportAccent), "Export Asset Package",
-            "Choose product files and export a Unity package with the guarded ThreadLight Components installer.");
+            "Opens the asset exporter for product files and the optional Customer Installer.");
         ThreadlightEditorElements.SetButtonEnabled(export,
             currentSystem != null && !managed && supportedData, false);
+        export.AddToClassList("threadlight-footer-button");
         actions.Add(export);
-        footer.Add(actions);
+        row.Add(actions);
+        footer.Add(row);
     }
     private void OpenAssetExporter() {
         if (currentSystem == null || !SupportsInstalledData(currentSystem) ||

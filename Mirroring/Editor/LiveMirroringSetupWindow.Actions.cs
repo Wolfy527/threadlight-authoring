@@ -8,7 +8,11 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 public sealed partial class LiveMirroringSetupWindow {
     private void OnSerializedSystemChanged() {
-        RebuildValidation();
+        if (WorkspaceCompositionChanged()) {
+            RebuildWorkspace();
+            return;
+        }
+        RefreshRetainedWorkspace();
     }
     private void ApplySerializedChange(
         string path,
@@ -64,9 +68,75 @@ public sealed partial class LiveMirroringSetupWindow {
     }
     private void AddPairFromSelection() {
         GameObject[] selected = Selection.gameObjects;
-        if (selected.Length != 2)
+        if (!TryResolveSelectedPairRoles(
+                selected,
+                Selection.activeGameObject,
+                out Transform source,
+                out Transform target)) {
+            pairActionError =
+                "Select two different scene objects. The active object becomes the mirrored target; the other becomes the source target.";
+            RebuildWorkspace();
             return;
-        AddPairInternal(selected[0].transform, selected[1].transform);
+        }
+        var candidate = new AuthoringLiveMirroringSystem.MirrorPair {
+            mirrorEnabled = true,
+            createOppositeTarget = true,
+            sourceTarget = source,
+            mirroredTarget = target
+        };
+        LiveMirroringPairStatus status = LiveMirroringService.AnalyzeCandidatePair(
+            currentSystem, candidate);
+        if (status != LiveMirroringPairStatus.Accepted) {
+            pairActionError = LiveMirroringSetupValidation.PairIssue(status);
+            RebuildWorkspace();
+            return;
+        }
+        pairActionError = null;
+        AddPairInternal(source, target);
+    }
+    internal static bool TryResolveSelectedPairRoles(
+        IReadOnlyList<GameObject> selected,
+        GameObject active,
+        out Transform source,
+        out Transform target) {
+        source = null;
+        target = null;
+        if (selected == null || selected.Count != 2 || active == null ||
+            selected[0] == null || selected[1] == null ||
+            selected[0] == selected[1])
+            return false;
+        bool firstIsActive = selected[0] == active;
+        bool secondIsActive = selected[1] == active;
+        if (firstIsActive == secondIsActive)
+            return false;
+        target = active.transform;
+        source = (firstIsActive ? selected[1] : selected[0]).transform;
+        return source != null && target != null && source != target;
+    }
+    private bool CanAddPairFromSelection() {
+        if (currentSystem == null ||
+            !TryResolveSelectedPairRoles(
+                Selection.gameObjects,
+                Selection.activeGameObject,
+                out Transform source,
+                out Transform target))
+            return false;
+        var candidate = new AuthoringLiveMirroringSystem.MirrorPair {
+            mirrorEnabled = true,
+            createOppositeTarget = true,
+            sourceTarget = source,
+            mirroredTarget = target
+        };
+        return LiveMirroringService.AnalyzeCandidatePair(currentSystem, candidate) ==
+            LiveMirroringPairStatus.Accepted;
+    }
+    private void RefreshAddSelectedObjectsState() {
+        if (addSelectedObjectsButton == null)
+            return;
+        ThreadlightEditorElements.SetButtonEnabled(
+            addSelectedObjectsButton,
+            CanAddPairFromSelection(),
+            false);
     }
     private void AddPairInternal(Transform source, Transform mirrored) {
         MutateArray("pairs", pairs => {
@@ -156,6 +226,12 @@ public sealed partial class LiveMirroringSetupWindow {
             ThreadlightEditorPreferences.ClearSessionState(
                 TargetCardSurfaceId, currentSystem, TargetCardPath(index));
     }
+    private void ResetTargetCardExpansionForExternalTopologyChange(int count) {
+        targetCardExpansion.Clear();
+        for (int index = 0; index < count; index++)
+            ThreadlightEditorPreferences.ClearSessionState(
+                TargetCardSurfaceId, currentSystem, TargetCardPath(index));
+    }
     private void SwapPair(int index) {
         MutateArray("pairs", pairs => {
             if (index < 0 || index >= pairs.arraySize) return false;
@@ -171,7 +247,7 @@ public sealed partial class LiveMirroringSetupWindow {
     private void BuildSetup() {
         if (!SupportsInstalledData(currentSystem)) {
             Debug.LogWarning(
-                "ThreadLight Mirroring did not build this setup because its data version is not supported by the installed ThreadLight Components package.",
+                "ThreadLight Mirroring did not build this setup because its data version is not supported by the installed ThreadLight Authoring package.",
                 currentSystem);
             RebuildWorkspace();
             return;
@@ -273,6 +349,7 @@ public sealed partial class LiveMirroringSetupWindow {
         return true;
     }
     private void SetSystem(AuthoringLiveMirroringSystem system) {
+        ThreadlightContinuousEditGesture.CompleteActiveWithin(rootVisualElement);
         targetCardExpansion.Clear();
         currentSystem = system;
         creationError = null;
@@ -318,20 +395,37 @@ public sealed partial class LiveMirroringSetupWindow {
             UseSelection();
     }
     private void OnSelectionChanged() {
+        RefreshAddSelectedObjectsState();
         if (rootVisualElement.panel == null)
             return;
         if (currentSystem == null && candidateRoot == null)
             UseSelectionIfHelpful();
     }
     private void OnUndoRedo() {
+        ThreadlightContinuousEditGesture.AbandonActiveWithin(
+            rootVisualElement);
         if (currentSystem == null) {
             ClearSystemReference();
             if (TryRestoreCandidateSystem()) return;
+            RebuildWorkspace();
+            return;
         }
-        RebuildWorkspace();
+        if (WorkspaceCompositionChanged()) {
+            RebuildWorkspace();
+            return;
+        }
+        RefreshRetainedWorkspace();
     }
     private void OnHierarchyChanged() {
-        if (currentSystem != null || serializedSystem == null)
+        if (currentSystem != null) {
+            if (WorkspaceCompositionChanged()) {
+                RebuildWorkspace();
+                return;
+            }
+            RefreshRetainedWorkspace();
+            return;
+        }
+        if (serializedSystem == null)
             return;
         ClearSystemReference();
         RebuildWorkspace();
@@ -358,6 +452,7 @@ public sealed partial class LiveMirroringSetupWindow {
         return true;
     }
     private void ClearSystemReference() {
+        ThreadlightContinuousEditGesture.CompleteActiveWithin(rootVisualElement);
         targetCardExpansion.Clear();
         currentSystem = null;
         serializedSystem = null;

@@ -24,10 +24,23 @@ public sealed class LiveMirroringValidationMessage
     public string Title { get; }
     public string Message { get; }
     public string PropertyPath { get; }
+    /// <summary>
+    /// Optional explicit ownership for a pair-scoped diagnostic. A negative
+    /// value means the message is not explicitly scoped to a pair. This is
+    /// presentation metadata only; it does not change validation semantics or
+    /// the serialized pair contract.
+    /// </summary>
+    public int PairIndex { get; }
     public LiveMirroringValidationMessage(LiveMirroringValidationSeverity severity, string title,
         string message = null, string propertyPath = null)
+        : this(severity, title, message, propertyPath, -1)
+    {
+    }
+    public LiveMirroringValidationMessage(LiveMirroringValidationSeverity severity, string title,
+        string message, string propertyPath, int pairIndex)
     {
         Severity = severity; Title = title; Message = message; PropertyPath = propertyPath;
+        PairIndex = pairIndex;
     }
 }
 
